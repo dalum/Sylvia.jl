@@ -6,10 +6,8 @@ import Base: convert, isless, zero, one, oneunit,
 
 export @def
 
-TypeSymbolLike = Union{Type{Symbol}, Type{Expr}, Type{QuoteNode}}
-SymbolLike = Union{Symbol, Expr, QuoteNode}
-
-#
+TypeSymbolLike = Union{Type{Symbol}, Type{Expr}}
+SymbolLike = Union{Symbol, Expr}
 
 isone(x) = x == one(x)
 
@@ -17,35 +15,34 @@ convert(::Type{Expr}, x::QuoteNode) = :(1*$x)
 convert(::Type{Expr}, x::Symbol) = :(1*$x)
 convert(::TypeSymbolLike, x::Number) = :(1*$x)
 
-zero(::Union{TypeSymbolLike, SymbolLike, Type{SymbolLike}}) = QuoteNode(0)#:(0+0)# QuoteNode(0)
-one(::Union{TypeSymbolLike, SymbolLike, Type{SymbolLike}}) = QuoteNode(1)#:(1*1)# QuoteNode(1)
+zero(::Union{TypeSymbolLike, SymbolLike, Type{SymbolLike}}) = :(0+0)
+one(::Union{TypeSymbolLike, SymbolLike, Type{SymbolLike}}) = :(1*1)
 oneunit(x::Union{TypeSymbolLike, SymbolLike, Type{SymbolLike}}) = one(x)
+
+ideleml(::Type{Val{:+}}, T) = zero(T)
+ideleml(::Type{Val{:*}}, T) = one(T)
+idelemr(::Type{Val{:+}}, T) = zero(T)
+idelemr(::Type{Val{:*}}, T) = one(T)
+idelemr(::Type{Val{:^}}, T) = one(T)
 
 iscall(x) = false
 iscall(x::Expr) = x.head == :call
 
 getsymbols(::Number) = Set(Symbol[])
 getsymbols(x::Symbol) = Set(Symbol[x])
-function getsymbols(x::Expr)
-    if x.head in [Symbol("'"), Symbol(".'"), :row, :vcat]
-        return mapreduce(getsymbols, union, x.args[1:end])
-    end
-    if x.head == :call
-        return mapreduce(getsymbols, union, x.args[2:end])
-    end
-end
 getsymbols(A::AbstractArray) = mapreduce(getsymbols, union, A)
+
+getsymbols(x::Expr) = getsymbols(Val{x.head}, x.args)
+getsymbols(::Any, args) = mapreduce(getsymbols, union, args)
+getsymbols(::Type{Val{:call}}, args) = mapreduce(getsymbols, union, args[2:end])
 
 hassymbols(::Number) = false
 hassymbols(::Symbol) = true
-function hassymbols(x::Expr)
-    if x.head in [Symbol("'"), Symbol(".'")]
-        return hassymbols(x.args[1])
-    end
-    if x.head == :call
-        return any(map(hassymbols, x.args[2:end]))
-    end
-end
+
+hassymbols(x::Expr) = hassymbols(Val{x.head}, x.args)
+hassymbols(::Any, args) = any(map(hassymbols, args))
+hassymbols(::Type{Val{:call}}, args) = any(map(hassymbols, args[2:end]))
+
 
 first_symbol(x) = nothing
 first_symbol(x::Symbol) = x
@@ -71,16 +68,14 @@ isless(::Void, ::Void) = false
 
 # Helper functions
 
-split_expr(x, ::Symbol) = (x, 1)
-function split_expr(x::Expr, f::Symbol)
-    if x.head == :call && x.args[1] == f
-        if length(x.args[3:end]) > 1
-            return (x.args[2], Expr(:call, f, x.args[3:end]...))
-        end
-        return (x.args[2], x.args[3])
-    end
-    (x, 1)
-end
+split_expr(x, f::Symbol) = (x, idelemr(Val{f}, x))
+split_expr(x::Expr, f::Symbol) = split_expr(Val{x.head}, x, f)
+split_expr(::Any, x, f::Symbol) = (x, idelemr(Val{f}, x))
+
+split_expr(::Type{Val{:call}}, x::Expr, f::Symbol) = x.args[1] == f ? _split_expr(Val{:call}, Val{length(x.args[2:end])}, x.args[2:end], f::Symbol) : (x, idelemr(Val{f}, x))
+
+_split_expr(::Type{Val{:call}}, ::Any, args, f::Symbol) = (args[1], Expr(:call, f, args[2:end]...))
+_split_expr(::Type{Val{:call}}, ::Type{Val{2}}, args, ::Symbol) = args
 
 unroll_expr(x, ::Symbol) = [x]
 unroll_expr(x::QuoteNode, ::Symbol) = [x.value]
@@ -88,7 +83,13 @@ unroll_expr(x::Expr, f::Symbol) = x.args[1] == f ? x.args[2:end] : [x]
 
 mulsort(a, i) = a isa Number ? (i, a) : (a, i)
 
-# Negation
+# neg
+
+isneg(x::Real) = x < 0
+isneg(x::Complex) = real(x) < 0
+isneg(x::Symbol) = false
+isneg(x::Expr) = iscall(x) && x.args[1] == :- && length(x.args) == 2
+
 function neg(x)
     #return :(-($x))
     xs = unroll_expr(x, :+)
@@ -106,21 +107,17 @@ function neg(x)
 end
 neg(x::Symbol) = :(-$x)
 
-isneg(x::Real) = x < 0
-isneg(x::Complex) = real(x) < 0
-isneg(x::Symbol) = false
-isneg(x::Expr) = x.head == :call && x.args[1] == :- && length(x.args) == 2
+# sign
 
 sign(x) = isneg(x) ? (-1, -x) : (1, x)
 sign(x, s) = isneg(s) ? -x : x
 
--(x::SymbolLike) = neg(x)
 #+(x::SymbolLike) = 1 * x
 
 # add
 function addcollect(x)
     if length(x) == 0
-        return 0
+        return zero(Expr)
     end
     if length(x) == 1
         return x[1]
@@ -128,7 +125,8 @@ function addcollect(x)
     Expr(:call, :+, x...)
 end
 
-function addunroll(x)
+addunroll(x) = x
+function addunroll(x::Expr)
     isneg(x) && return map(neg, unroll_expr(x.args[2], :+))
 
     x = unroll_expr(x, :-)
@@ -137,9 +135,12 @@ function addunroll(x)
                               map(neg, unroll_expr(x[2], :+))]
 end
 
+isadd(x) = false
+isadd(x::Expr) = iscall(x) && x.args[1] == :+
+
 function add(x, y)
-    iszero(x) && return y
-    iszero(y) && return x
+    iszero(x) && return convert(Expr, y)
+    iszero(y) && return convert(Expr, x)
     x == y && return 2x
 
     rawargs = sort([addunroll(x); addunroll(y)])
@@ -169,7 +170,7 @@ function add(x, y)
     !iszero(a) && !iszero(i) && push!(args, isone(i) ? a : a * i)
 
     if length(args) == 0
-        return 0
+        return zero(Expr)
     end
     if length(args) == 1
         return args[1]
@@ -190,19 +191,16 @@ function add(x, y)
     return :($addexpr - $subexpr)
 end
 
-isadd(x) = false
-isadd(x::Expr) = x.head == :call && x.args[1] == :+
-
 # sub
 function sub(x, y)
     if iszero(x)
-        return -y
+        return convert(Expr, -y)
     end
     if iszero(y)
-        return x
+        return convert(Expr, x)
     end
     if x == y
-        return 0
+        return zero(Expr)
     end
     x + (-y)
 end
@@ -210,7 +208,7 @@ end
 # mul
 function mulcollect(x)
     if length(x) == 0
-        return 1
+        return one(Expr)
     end
     if length(x) == 1
         return x[1]
@@ -225,10 +223,12 @@ function mulunroll(x)
                               map(inv, reverse(unroll_expr(x[2], :*)))]
 end
 
+ismul(x) = false
+ismul(x::Expr) = iscall(x) && x.args[1] == :*
 function mul(x, y)
     (iszero(x) || iszero(y)) && return zero(Expr)
-    isone(x) && return y
-    isone(y) && return x
+    isone(x) && return convert(Expr, y)
+    isone(y) && return convert(Expr, x)
     x == y && return x^2
 
     s, x = sign(x)
@@ -255,7 +255,7 @@ function mul(x, y)
         if b == a
             i = i + j
         else
-            !isone(a) && push!(args, iszero(i) ? 1 : isone(i) ? a : a^i)
+            !isone(a) && !iszero(i) && push!(args, isone(i) ? a : a^i)
             a, i = b, j
         end
     end
@@ -288,36 +288,51 @@ end
 mul(x::SymbolLike, y::Number) = mul(y, x)
 
 # div
+isdiv(x) = false
+isdiv(x::Expr) = iscall(x) && x.args[1] in [:/, ://]
+isrdiv(x) = false
+isrdiv(x::Expr) = iscall(x) && x.args[1] == :\
+
 function div(x, y)
-    isone(x) && return inv(y)
-    isone(y) && return x
-    x == y && return 1
+    isone(x) && return convert(Expr, inv(y))
+    isone(y) && return convert(Expr, x)
+    x == y && return one(x)
 
     x * inv(y)
 end
 rdiv(x, y) = inv(x) * y
 
 # pow
+ispow(x) = false
+ispow(x::Expr) = iscall(x) && x.args[1] == :^
+
 function pow(x, y)
-    Expr(:call, :^, x, y)
+    isone(y) && return convert(Expr, x)
+    isone(x) && return one(Expr)
+
+    xs = mulunroll(x)
+    if length(xs) == 1
+        x, i = split_expr(xs[1], :^)
+        i, j = split_expr(i, :*)
+        y *= isone(i) ? j : i * j
+        return :($x ^ $y)
+    end
+    prod([pow(x, y) for x in xs])
 end
 
 # inv
+isinv(x) = false
+isinv(x::Expr) = ispow(x) && isneg(x.args[3])
+
 function inv(x::SymbolLike)
     s, x = sign(x)
     sign(x^-1, s)
 end
 
-isinv(x) = false
-isinv(x::Expr) = x.head == :call && x.args[1] == :^ && isneg(x.args[3])
-
-# Needs special treatment
-^(x::SymbolLike, y::Integer) = pow(x, y)
-
 conj(x::Symbol) = :(conj($x))
 conj(x::Expr) = isconj(x) ? x.args[2] : :(conj($x))
 isconj(x::Symbol) = false
-isconj(x::Expr) = x.head == :call && x.args[1] == :conj
+isconj(x::Expr) = iscall(x) && x.args[1] == :conj
 
 for (f, s) in [(:transpose, ".'"), (:ctranspose, "'")]
     isf = Symbol(:is, f)
@@ -356,6 +371,11 @@ for (op, name) in ((:+, add), (:-, sub),
     @eval $op(x, y::SymbolLike) = $name(x, y)
     @eval $op(x::SymbolLike, y::SymbolLike) = $name(x, y)
 end
+-(x::SymbolLike) = neg(x)
+# Needs special treatment
+^(x::SymbolLike, y::Integer) = pow(x, y)
+
+
 
 expressify(a) = a # Catch all
 expressify(A::AbstractMatrix) = Expr(:vcat, mapslices(x -> Expr(:row, x...), A, 2)...)
