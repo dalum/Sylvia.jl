@@ -151,14 +151,14 @@ function add(x, y)
     a, i = mulsort(split_expr(a, :*)...); i *= s
     for b in rawargs[2:end]
         if !hassymbols(a) && !hassymbols(i) && !hassymbols(b)
-            a *= i
+            a = eval(:($a * $i + $b))
             i = 1
-            a += b
             continue
         end
 
         s, b = sign(b)
         b, j = mulsort(split_expr(b, :*)...); j *= s
+        !hassymbols(j) && (j = eval(j))
         if b == a
             i = i + j
         else
