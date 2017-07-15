@@ -2,7 +2,7 @@ module Sylvia
 
 ############################################################
 
-export @S_str, @def, @λ, Symbolic
+export @S_str, @def, @λ, @symbols, Symbolic
 
 ############################################################
 
@@ -33,6 +33,17 @@ Base.show(io::IO, x::Symbolic) = print(io, "$show_prefix$(x.value)$show_suffix")
 
 Base.convert(::Type{Symbolic}, x) = Symbolic(x)
 Base.convert(::Type{Symbolic}, x::Symbolic) = x
+
+############################################################
+
+############################################################
+
+_strict = false
+function strict(strict=true)
+    global _strict
+    _strict = strict
+    println("Strict mode: $strict")
+end
 
 ############################################################
 
@@ -342,16 +353,25 @@ isrdiv(x) = false
 isrdiv(x::Expr) = iscall(x) && x.args[1] == ://
 
 div(x::Number, y::Number) = x / y
-div(x::Union{Symbol, Expr}, y::Number) = isone(y) ? x : :($x / $y)
-div(x::Number, y::Union{Symbol, Expr}) = isone(x) ? inv(y) : :($x / $y)
-div(x, y) = mul(x, inv(y))
+div(x::Union{Symbol, Expr}, y::Number) = isone(y) ? x : _div(x, y)
+div(x::Number, y::Union{Symbol, Expr}) = iszero(x) && !_strict ? 0 : isone(x) ? inv(y) : _div(x, y)
+div(x, y) = _div(x, y)
 
-idiv(x, y) = mul(inv(x), y)
+_div(x, y) = mul(x, inv(y))
+
+idiv(x::Number, y::Number) = x \ y
+idiv(x::Union{Symbol, Expr}, y::Number) = iszero(x) && !_strict ? 0 : isone(x) ? inv(y) : _idiv(x, y)
+idiv(x::Number, y::Union{Symbol, Expr}) = isone(y) ? x : _idiv(x, y)
+idiv(x, y) = _idiv(x, y)
+
+_idiv(x, y) = mul(inv(x), y)
 
 rdiv(x::Number, y::Number) = x // y
-rdiv(x::Union{Symbol, Expr}, y::Number) = isone(y) ? x : :($x // $y)
-rdiv(x::Number, y::Union{Symbol, Expr}) = :($x // $y)
-rdiv(x, y) = x == y ? 1 : :($x // $y)
+rdiv(x::Union{Symbol, Expr}, y::Number) = isone(y) ? x : _rdiv(x, y)
+rdiv(x::Number, y::Union{Symbol, Expr}) = _rdiv(x, y)
+rdiv(x, y) = x == y ? 1 : _rdiv(x, y)
+
+_rdiv(x, y) = :($x // $y)
 
 # pow
 ispow(x) = false
@@ -368,6 +388,7 @@ function _pow(x, y)
 end
 
 # inv
+
 isinv(x) = false
 isinv(x::Expr) = ispow(x) && isneg(x.args[3])
 
@@ -389,7 +410,7 @@ function transpose(x::Expr)
     istranspose(x) && return x.args[1]
     isctranspose(x) && return conj(x.args[1])
 
-    isadd(x) && return sum(map(transpose, unroll_expr(x, :+)))
+    isadd(x) && return reduce(add, map(transpose, unroll_expr(x, :+)))
 
     X = mulunroll(x)
     length(X) == 1 && return :($x.')
@@ -406,7 +427,7 @@ function ctranspose(x::Expr)
     istranspose(x) && return conj(x.args[1])
     isctranspose(x) && return x.args[1]
 
-    isadd(x) && return sum(map(ctranspose, unroll_expr(x, :+)))
+    isadd(x) && return reduce(add, map(ctranspose, unroll_expr(x, :+)))
 
     X = mulunroll(x)
     length(X) == 1 && return :($x')
@@ -434,22 +455,22 @@ function define_operators(verbose::Bool)
                        (:(Base.conj), conj), (:(Base.transpose), transpose),
                        (:(Base.ctranspose), ctranspose))
         if verbose
-            @eval $op(x::Symbolic) = @verbose_call $name (x,) Symbolic($name(x.value))
+            @eval $op(x::Symbolic)::Symbolic = @verbose_call $name (x,) Symbolic($name(x.value))
         else
-            @eval $op(x::Symbolic) = Symbolic($name(x.value))
+            @eval $op(x::Symbolic)::Symbolic = Symbolic($name(x.value))
         end
     end
 
     for (op, name) in ((:(Base.:+), add), (:(Base.:-), sub), (:(Base.:*), mul), (:(Base.:/), div),
                        (:(Base.:\), idiv), (:(Base.://), rdiv), (:(Base.:^), pow))
         if verbose
-            @eval $op(x::Symbolic, y) = @verbose_call $name (x, y) Symbolic($name(x.value, y))
-            @eval $op(x, y::Symbolic) = @verbose_call $name (x, y) Symbolic($name(x, y.value))
-            @eval $op(x::Symbolic, y::Symbolic) = @verbose_call $name (x, y) Symbolic($name(x.value, y.value))
+            @eval $op(x::Symbolic, y)::Symbolic = @verbose_call $name (x, y) Symbolic($name(x.value, y))
+            @eval $op(x, y::Symbolic)::Symbolic = @verbose_call $name (x, y) Symbolic($name(x, y.value))
+            @eval $op(x::Symbolic, y::Symbolic)::Symbolic = @verbose_call $name (x, y) Symbolic($name(x.value, y.value))
         else
-            @eval $op(x::Symbolic, y) = Symbolic($name(x.value, y))
-            @eval $op(x, y::Symbolic) = Symbolic($name(x, y.value))
-            @eval $op(x::Symbolic, y::Symbolic) = Symbolic($name(x.value, y.value))
+            @eval $op(x::Symbolic, y)::Symbolic = Symbolic($name(x.value, y))
+            @eval $op(x, y::Symbolic)::Symbolic = Symbolic($name(x, y.value))
+            @eval $op(x::Symbolic, y::Symbolic)::Symbolic = Symbolic($name(x.value, y.value))
         end
     end
 
@@ -457,21 +478,21 @@ function define_operators(verbose::Bool)
 
     for (op, name) in ((:(Base.:(==)), eq), (:(Base.:<), isless))
         if verbose
-            @eval $op(x::Symbolic, y) = @verbose_call $name (x, y) $name(x.value, y)
-            @eval $op(x, y::Symbolic) = @verbose_call $name (x, y) $name(x, y.value)
-            @eval $op(x::Symbolic, y::Symbolic) = @verbose_call $name (x, y) $name(x.value, y.value)
+            @eval $op(x::Symbolic, y)::Bool = @verbose_call $name (x, y) $name(x.value, y)
+            @eval $op(x, y::Symbolic)::Bool = @verbose_call $name (x, y) $name(x, y.value)
+            @eval $op(x::Symbolic, y::Symbolic)::Bool = @verbose_call $name (x, y) $name(x.value, y.value)
         else
-            @eval $op(x::Symbolic, y) = $name(x.value, y)
-            @eval $op(x, y::Symbolic) = $name(x, y.value)
-            @eval $op(x::Symbolic, y::Symbolic) = $name(x.value, y.value)
+            @eval $op(x::Symbolic, y)::Bool = $name(x.value, y)
+            @eval $op(x, y::Symbolic)::Bool = $name(x, y.value)
+            @eval $op(x::Symbolic, y::Symbolic)::Bool = $name(x.value, y.value)
         end
     end
 
     # Needs special treatment
     if verbose
-        Base.:^(x::Symbolic, y::Integer) = @verbose_call $name (x, y) Symbolic(pow(x.value, y))
+        Base.:^(x::Symbolic, y::Integer)::Symbolic = @verbose_call $name (x, y) Symbolic(pow(x.value, y))
     else
-        Base.:^(x::Symbolic, y::Integer) = Symbolic(pow(x.value, y))
+        Base.:^(x::Symbolic, y::Integer)::Symbolic = Symbolic(pow(x.value, y))
     end
 end
 
@@ -493,8 +514,27 @@ end
 ############################################################
 
 expressify(a) = a # Catch all
+expressify(a::Symbolic) = value(a) # Catch all
 expressify(V::AbstractVector) = Expr(:vect, value.(V)...)
 expressify(A::AbstractMatrix) = Expr(:vcat, mapslices(x -> Expr(:row, value.(x)...), A, 2)...)
+
+macro symbols(names)
+    if names isa Expr
+        if names.head ≠ :tuple
+            throw(ArgumentError("invalid list of symbols"))
+        end
+        names = names.args
+    elseif names isa Symbol
+        names = (names,)
+    else
+        throw(ArgumentError("invalid list of symbols"))
+    end
+    esc(Expr(:block, (Expr(:(=), name, Symbolic(name)) for name in names)..., :nothing))
+end
+
+macro symbols(names::Symbol...)
+    esc(Expr(:block, (Expr(:(=), name, Symbolic(name)) for name in names)..., :nothing))
+end
 
 macro def(expr)
     if expr.head ≠ :(=)
@@ -515,7 +555,7 @@ macro def(expr)
 end
 
 macro λ(expr)
-    if expr.head == :(->)
+    if expr isa Expr && expr.head == :(->)
         if expr.args[1].head ≠ :tuple
             throw(ArgumentError("invalid lambda definition"))
         end
