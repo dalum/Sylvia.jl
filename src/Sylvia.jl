@@ -1,15 +1,24 @@
 module Sylvia
 
-export @S_str, @def, Symbolic
+############################################################
+
+export @S_str, @def, @λ, Symbolic
+
+############################################################
 
 struct Symbolic
     value
 end
 Symbolic(value::Symbolic) = Symbolic(value.value) # Don't nest Symbolic types
+Symbolic(value::AbstractArray) = convert(AbstractArray{Symbolic}, value)
+
+value(x::Symbolic) = x.value
 
 macro S_str(str)
     Symbolic(parse(str))
 end
+
+############################################################
 
 show_prefix = ""
 show_suffix = ""
@@ -17,19 +26,17 @@ function setshow(prefix, suffix)
     global show_prefix, show_suffix
     show_prefix = prefix
     show_suffix = suffix
-    nothing
-end
-
-function debug(value=true)
-    value && setshow("S\"", "\"")
-    !value && setshow("", "")
-    nothing
+    println("Symbolic types printed as print(Symbolic(x)) -> $(show_prefix)x$(show_suffix)")
 end
 
 Base.show(io::IO, x::Symbolic) = print(io, "$show_prefix$(x.value)$show_suffix")
 
 Base.convert(::Type{Symbolic}, x) = Symbolic(x)
 Base.convert(::Type{Symbolic}, x::Symbolic) = x
+
+############################################################
+
+############################################################
 
 Base.zero(::Symbolic) = Symbolic(0)
 Base.one(::Symbolic) = Symbolic(1)
@@ -47,11 +54,11 @@ isone(x) = x == one(x)
 isone(::Symbol) = false
 isone(::Expr) = false
 
-ideleml(::Type{Val{:+}}, T) = 0
-ideleml(::Type{Val{:*}}, T) = 1
-idelemr(::Type{Val{:+}}, T) = 0
-idelemr(::Type{Val{:*}}, T) = 1
-idelemr(::Type{Val{:^}}, T) = 1
+ideleml(::Type{Val{:+}}) = 0
+ideleml(::Type{Val{:*}}) = 1
+idelemr(::Type{Val{:+}}) = 0
+idelemr(::Type{Val{:*}}) = 1
+idelemr(::Type{Val{:^}}) = 1
 
 iscall(x) = false
 iscall(x::Expr) = x.head == :call
@@ -59,14 +66,12 @@ iscall(x::Expr) = x.head == :call
 getsymbols(::Number) = Set(Symbol[])
 getsymbols(x::Symbol) = Set(Symbol[x])
 getsymbols(A::AbstractArray) = mapreduce(getsymbols, union, A)
-
 getsymbols(x::Expr) = getsymbols(Val{x.head}, x.args)
 getsymbols(::Any, args) = mapreduce(getsymbols, union, args)
 getsymbols(::Type{Val{:call}}, args) = mapreduce(getsymbols, union, args[2:end])
 
 hassymbols(::Number) = false
 hassymbols(::Symbol) = true
-
 hassymbols(x::Expr) = hassymbols(Val{x.head}, x.args)
 hassymbols(::Any, args) = any(map(hassymbols, args))
 hassymbols(::Type{Val{:call}}, args) = any(map(hassymbols, args[2:end]))
@@ -74,17 +79,12 @@ hassymbols(::Type{Val{:call}}, args) = any(map(hassymbols, args[2:end]))
 
 firstsymbol(x) = nothing
 firstsymbol(x::Symbol) = x
-function firstsymbol(x::Expr)
-    if x.head == Symbol("'")
-        return firstsymbol(x.args[1])
-    end
-    if x.head == :call
-        for arg in x.args[2:end]
-            (s = firstsymbol(arg)) != nothing && return s
-        end
-    end
-    nothing
+firstsymbol(x::Expr) = firstsymbol(Val{x.head}, x.args)
+firstsymbol(x::AbstractArray) = for arg in x
+    (s = firstsymbol(arg)) != nothing && return s
 end
+firstsymbol(::Any, args) = firstsymbol(args)
+firstsymbol(::Type{Val{:call}}, args) = firstsymbol(args[2:end])
 
 isless(x, y) = Base.isless(x, y)
 isless(::Union{Symbol, Expr}, ::Number) = false
@@ -100,7 +100,7 @@ sort(x) = Base.sort(x, lt=isless)
 
 # Helper functions
 
-_split_expr(x, f::Symbol) = (x, idelemr(Val{f}, x))
+_split_expr(x, f::Symbol) = (x, idelemr(Val{f}))
 split_expr(x, f::Symbol) = _split_expr(x, f)
 split_expr(x::Expr, f::Symbol) = _split_expr(Val{x.head}, x, f)
 
@@ -115,10 +115,22 @@ unroll_expr(x, ::Symbol) = [x]
 unroll_expr(x::QuoteNode, ::Symbol) = [x.value]
 unroll_expr(x::Expr, f::Symbol) = x.args[1] == f ? x.args[2:end] : [x]
 
-mulsort(a, i) = a isa Number ? (i, a) : (a, i)
+mulsort(a, i) = begin
+    a isa Number ? (i, a) : (a, i)
+end
+
+# eq
+
+eq(x, y) = x == y
+
+# sign
+
+sign(x) = isneg(x) ? (-1, neg(x)) : (1, x)
+sign(x, s) = isneg(s) ? neg(x) : x
 
 # neg
 
+isneg(x::UniformScaling) = x < 0
 isneg(x::Real) = x < 0
 isneg(x::Complex) = real(x) < 0
 isneg(x::Symbol) = false
@@ -140,11 +152,6 @@ function neg(x::Expr)
     end
     :(-($x))
 end
-
-# sign
-
-sign(x) = isneg(x) ? (-1, neg(x)) : (1, x)
-sign(x, s) = isneg(s) ? neg(x) : x
 
 # add
 function addcollect(x)
@@ -267,15 +274,16 @@ function _mul(x, y)
     x == inv(y) && return 1
 
     s, x = sign(x)
-    s_, y = sign(y); s = mul(s, s_)
+    s_, y = sign(y)
+    s = mul(s, s_)
 
     rawargs = [mulunroll(x); mulunroll(y)]
-    println(rawargs)
     args = []
     a = rawargs[1]
 
     a, i = split_expr(a, :^)
-    s_, a = sign(a); s = mul(s, s_)
+    s_, a = sign(a)
+    s = mul(s, s_)
 
     for b in rawargs[2:end]
         if a isa Number && b isa Number && i isa Number
@@ -285,12 +293,11 @@ function _mul(x, y)
         end
 
         b, j = split_expr(b, :^)
-        s_, b = sign(b); s = mul(s, s_)
+        s_, b = sign(b)
+        s = mul(s, s_)
 
         if b == a
             i = add(i, j)
-        elseif !isone(i) && i == j
-            a = mul(a, b)
         else
             !isone(a) && !iszero(i) && push!(args, isone(i) ? a : pow(a, i))
             a, i = b, j
@@ -328,17 +335,23 @@ mul(x::Symbolic, y::Number) = mul(y, x)
 
 # div
 isdiv(x) = false
-isdiv(x::Expr) = iscall(x) && x.args[1] in [:/, ://]
+isdiv(x::Expr) = iscall(x) && x.args[1] == :/
+isidiv(x) = false
+isidiv(x::Expr) = iscall(x) && x.args[1] == :\
 isrdiv(x) = false
-isrdiv(x::Expr) = iscall(x) && x.args[1] == :\
+isrdiv(x::Expr) = iscall(x) && x.args[1] == ://
 
 div(x::Number, y::Number) = x / y
 div(x::Union{Symbol, Expr}, y::Number) = isone(y) ? x : :($x / $y)
 div(x::Number, y::Union{Symbol, Expr}) = isone(x) ? inv(y) : :($x / $y)
 div(x, y) = mul(x, inv(y))
 
-idiv(x, y) = div(y, x)
-rdiv(x, y) = div(y, x)
+idiv(x, y) = mul(inv(x), y)
+
+rdiv(x::Number, y::Number) = x // y
+rdiv(x::Union{Symbol, Expr}, y::Number) = isone(y) ? x : :($x // $y)
+rdiv(x::Number, y::Union{Symbol, Expr}) = :($x // $y)
+rdiv(x, y) = x == y ? 1 : :($x // $y)
 
 # pow
 ispow(x) = false
@@ -348,10 +361,6 @@ pow(x::Union{Symbol, Expr}, n::Number) = iszero(n) ? 1 : isone(n) ? x : _pow(x, 
 pow(n::Number, x::Union{Symbol, Expr}) = isone(n) ? n : _pow(n, x)
 pow(x, y) = _pow(x, y)
 function _pow(x, y)
-    #xs = mulunroll(x)
-    #length(xs) > 1 && return reduce(mul, ([pow(x, y) for x in xs]))
-
-    #x, i = split_expr(xs[1], :^)
     x, i = split_expr(x, :^)
     i, j = split_expr(i, :*)
     y = mul(y, isone(i) ? j : mul(i, j))
@@ -365,94 +374,132 @@ isinv(x::Expr) = ispow(x) && isneg(x.args[3])
 inv(x) = Base.inv(x)
 inv(x::Symbol) = :($x^-1)
 inv(x::Expr) = pow(x, -1)
-Base.inv(x::Symbolic) = x^-1
 
-# Base.LinAlg ends up assuming wrong types, so we override these
-
-# function Base.inv(A::StridedMatrix{Symbolic})
-#     Base.LinAlg.checksquare(A)
-#     AA = convert(AbstractArray{Symbolic}, A)
-#     if Base.LinAlg.istriu(AA)
-#         Ai = inv(Base.LinAlg.UpperTriangular(AA))
-#         Ai = convert(typeof(parent(Ai)), Ai)
-#     elseif Base.LinAlg.istril(AA)
-#         Ai = inv(Base.LinAlg.LowerTriangular(AA))
-#         Ai = convert(typeof(parent(Ai)), Ai)
-#     else
-#         Ai = inv(Base.LinAlg.lufact(AA))
-#         Ai = convert(typeof(parent(Ai)), Ai)
-#     end
-#     return Ai
-# end
-
-# function Base.lufact(A::AbstractMatrix{Symbolic})
-#     AA = similar(A, Symbolic, size(A))
-#     copy!(AA, A)
-#     F = lufact!(AA, Val{false})
-#     if F.info == 0
-#         return F
-#     else
-#         AA = similar(A, Symbolic, size(A))
-#         copy!(AA, A)
-#         return lufact!(AA, Val{true})
-#     end
-# end
-
+conj(x) = Base.conj(x)
 conj(x::Symbol) = :(conj($x))
 conj(x::Expr) = isconj(x) ? x.args[2] : :(conj($x))
-isconj(x::Symbol) = false
+
+isconj(x) = false
 isconj(x::Expr) = iscall(x) && x.args[1] == :conj
 
-for (f, s) in [(:transpose, ".'"), (:ctranspose, "'")]
-    isf = Symbol(:is, f)
-
-    @eval $isf(x) = false
-    @eval $isf(x::Expr) = x.head == Symbol("$($s)")
-    @eval $f(x::Symbolic) = Expr(Symbol("$($s)"), x)
-end
-
+transpose(x) = Base.transpose(x)
+transpose(x::Symbol) = :($x.')
 function transpose(x::Expr)
-    !hassymbols(x) && return transpose(eval(x))
-    istranspose(x) && return x.args[1]
-    isadd(x) && return sum(map(transpose, unroll_expr(x, :+)))
     isconj(x) && return ctranspose(x.args[2])
+    istranspose(x) && return x.args[1]
+    isctranspose(x) && return conj(x.args[1])
+
+    isadd(x) && return sum(map(transpose, unroll_expr(x, :+)))
 
     X = mulunroll(x)
     length(X) == 1 && return :($x.')
-    prod(map(transpose, reverse(X)))
+    reduce(mul, (map(transpose, reverse(X))))
 end
 
+istranspose(x) = false
+istranspose(x::Expr) = iscall(x) && x.args[1] == Symbol(".'")
+
+ctranspose(x) = Base.ctranspose(x)
+ctranspose(x::Symbol) = :($x')
 function ctranspose(x::Expr)
-    !hassymbols(x) && return ctranspose(eval(x))
-    isctranspose(x) && return x.args[1]
-    isadd(x) && return sum(map(ctranspose, unroll_expr(x, :+)))
     isconj(x) && return transpose(x.args[2])
+    istranspose(x) && return conj(x.args[1])
+    isctranspose(x) && return x.args[1]
+
+    isadd(x) && return sum(map(ctranspose, unroll_expr(x, :+)))
 
     X = mulunroll(x)
     length(X) == 1 && return :($x')
-    prod(map(ctranspose, reverse(X)))
+    reduce(mul, (map(ctranspose, reverse(X))))
 end
 
-for (op, name) in ((:(Base.:+), add), (:(Base.:-), sub), (:(Base.:*), mul),
-                   (:(Base.:/), div), (:(Base.:\), idiv), (:(Base.://), rdiv),
-                   (:(Base.:^), pow))
-    @eval $op(x::Symbolic, y) = Symbolic($name(x.value, y))
-    @eval $op(x, y::Symbolic) = Symbolic($name(x, y.value))
-    @eval $op(x::Symbolic, y::Symbolic) = Symbolic($name(x.value, y.value))
+isctranspose(x) = false
+isctranspose(x::Expr) = iscall(x) && x.args[1] == Symbol("'")
+
+############################################################
+
+############################################################
+
+macro verbose_call(name, symbols, expr)
+    esc(quote
+        print("$($name)(", join($symbols, ", "), ")")
+        retval = $expr
+        println(" => $retval")
+        retval
+    end)
 end
-Base.:-(x::Symbolic) = Symbolic(neg(x.value))
-Base.:+(x::Symbolic) = x
 
-# Needs special treatment
-Base.:^(x::Symbolic, y::Integer) = Symbolic(pow(x.value, y))
+function define_operators(verbose::Bool)
+    for (op, name) in ((:(Base.:+), identity), (:(Base.:-), neg), (:(Base.inv), inv),
+                       (:(Base.conj), conj), (:(Base.transpose), transpose),
+                       (:(Base.ctranspose), ctranspose))
+        if verbose
+            @eval $op(x::Symbolic) = @verbose_call $name (x,) Symbolic($name(x.value))
+        else
+            @eval $op(x::Symbolic) = Symbolic($name(x.value))
+        end
+    end
 
+    for (op, name) in ((:(Base.:+), add), (:(Base.:-), sub), (:(Base.:*), mul), (:(Base.:/), div),
+                       (:(Base.:\), idiv), (:(Base.://), rdiv), (:(Base.:^), pow))
+        if verbose
+            @eval $op(x::Symbolic, y) = @verbose_call $name (x, y) Symbolic($name(x.value, y))
+            @eval $op(x, y::Symbolic) = @verbose_call $name (x, y) Symbolic($name(x, y.value))
+            @eval $op(x::Symbolic, y::Symbolic) = @verbose_call $name (x, y) Symbolic($name(x.value, y.value))
+        else
+            @eval $op(x::Symbolic, y) = Symbolic($name(x.value, y))
+            @eval $op(x, y::Symbolic) = Symbolic($name(x, y.value))
+            @eval $op(x::Symbolic, y::Symbolic) = Symbolic($name(x.value, y.value))
+        end
+    end
 
+    # Undressed return values
+
+    for (op, name) in ((:(Base.:(==)), eq), (:(Base.:<), isless))
+        if verbose
+            @eval $op(x::Symbolic, y) = @verbose_call $name (x, y) $name(x.value, y)
+            @eval $op(x, y::Symbolic) = @verbose_call $name (x, y) $name(x, y.value)
+            @eval $op(x::Symbolic, y::Symbolic) = @verbose_call $name (x, y) $name(x.value, y.value)
+        else
+            @eval $op(x::Symbolic, y) = $name(x.value, y)
+            @eval $op(x, y::Symbolic) = $name(x, y.value)
+            @eval $op(x::Symbolic, y::Symbolic) = $name(x.value, y.value)
+        end
+    end
+
+    # Needs special treatment
+    if verbose
+        Base.:^(x::Symbolic, y::Integer) = @verbose_call $name (x, y) Symbolic(pow(x.value, y))
+    else
+        Base.:^(x::Symbolic, y::Integer) = Symbolic(pow(x.value, y))
+    end
+end
+
+define_operators(false)
+
+function debug(debug::Bool = true)
+    if debug
+        setshow("S\"", "\"")
+        define_operators(true)
+    else
+        setshow("", "")
+        define_operators(false)
+    end
+    print("Debug: $debug")
+end
+
+############################################################
+
+############################################################
 
 expressify(a) = a # Catch all
-expressify(A::AbstractMatrix) = Expr(:vcat, mapslices(x -> Expr(:row, x...), A, 2)...)
+expressify(V::AbstractVector) = Expr(:vect, value.(V)...)
+expressify(A::AbstractMatrix) = Expr(:vcat, mapslices(x -> Expr(:row, value.(x)...), A, 2)...)
 
 macro def(expr)
-    expr.head != :(=) && throw(ArgumentError("invalid function definition"))
+    if expr.head ≠ :(=)
+        throw(ArgumentError("invalid function definition"))
+    end
 
     body = expressify(Main.eval(expr.args[2]))
 
@@ -464,7 +511,21 @@ macro def(expr)
     else
         throw(ArgumentError("name must be either a symbol or call"))
     end
-    return esc(:($name($(symbols...,)) = $body))
+    return esc(Expr(:(=), Expr(:call, name, symbols...), body))
+end
+
+macro λ(expr)
+    if expr.head == :(->)
+        if expr.args[1].head ≠ :tuple
+            throw(ArgumentError("invalid lambda definition"))
+        end
+        body = expressify(Main.eval(expr.args[2]))
+        symbols = expr.args[1].args
+    else
+        body = expressify(Main.eval(expr))
+        symbols = sort(collect(getsymbols(body)))
+    end
+    return esc(Expr(:(->), Expr(:tuple, symbols...), body))
 end
 
 end # module
