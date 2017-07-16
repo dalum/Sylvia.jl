@@ -514,34 +514,24 @@ end
 ############################################################
 
 expressify(a) = a # Catch all
-expressify(a::Symbolic) = value(a) # Catch all
+expressify(a::Symbolic) = value(a)
 expressify(V::AbstractVector) = Expr(:vect, value.(V)...)
 expressify(A::AbstractMatrix) = Expr(:vcat, mapslices(x -> Expr(:row, value.(x)...), A, 2)...)
 
-macro symbols(names)
-    if names isa Expr
-        if names.head ≠ :tuple
-            throw(ArgumentError("invalid list of symbols"))
-        end
-        names = names.args
-    elseif names isa Symbol
-        names = (names,)
-    else
-        throw(ArgumentError("invalid list of symbols"))
-    end
-    esc(Expr(:block, (Expr(:(=), name, Symbolic(name)) for name in names)..., :nothing))
-end
+# symbols
 
 macro symbols(names::Symbol...)
     esc(Expr(:block, (Expr(:(=), name, Symbolic(name)) for name in names)..., :nothing))
 end
 
-macro def(expr)
+# def
+
+function _def(mod, expr)
     if expr.head ≠ :(=)
         throw(ArgumentError("invalid function definition"))
     end
 
-    body = expressify(Main.eval(expr.args[2]))
+    body = expressify(eval(mod, expr.args[2]))
 
     name = expr.args[1]
     if name isa Symbol
@@ -553,6 +543,11 @@ macro def(expr)
     end
     return esc(Expr(:(=), Expr(:call, name, symbols...), body))
 end
+
+macro def(expr) _def(Main, expr) end
+macro def(mod, expr) _def(mod, expr) end
+
+# λ
 
 macro λ(expr)
     if expr isa Expr && expr.head == :(->)
