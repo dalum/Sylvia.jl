@@ -6,17 +6,34 @@ export @S_str, @def, @λ, @symbols, Symbolic
 
 ############################################################
 
-struct Symbolic
-    value
+struct Symbolic{T}
+    value::T
 end
-Symbolic(value::Symbolic) = Symbolic(value.value) # Don't nest Symbolic types
-Symbolic(value::AbstractArray) = convert(AbstractArray{Symbolic}, value)
+Symbolic(x::Symbolic) = Symbolic(x.value)
+Symbolic(A::AbstractArray) = convert(AbstractArray{Symbolic}, A)
 
 value(x::Symbolic) = x.value
 
 macro S_str(str)
     Symbolic(parse(str))
 end
+
+Base.convert(T::Type, x::Symbolic{S}) where S                   = convert(T, x.value)
+Base.convert(::Type{Symbolic}, x)                               = Symbolic(x)
+Base.convert(::Type{Symbolic{T}}, x) where T                    = Symbolic(x)
+Base.convert(::Type{Symbolic}, x::Symbolic)                     = x
+Base.convert(::Type{Symbolic{T}}, x::Symbolic{T}) where T       = x
+Base.convert(::Type{Symbolic{T}}, x::Symbolic{S}) where {T,S}   = Symbolic(convert(T, x.value))
+
+Base.convert(::Type{AbstractArray{Symbolic{T},N}}, A::AbstractArray{S,N}) where {T<:Number, S,N} = Base.convert(AbstractArray{Symbolic,N}, A)
+
+Base.similar(a::Array{T,1}) where {T<:Symbolic}                        = Array{Symbolic,1}(size(a,1))
+Base.similar(a::Array{T,2}) where {T<:Symbolic}                        = Array{Symbolic,2}(size(a,1), size(a,2))
+Base.similar(a::Array{T,1}, S::Type{Symbolic{T}}) where {T}            = Array{Symbolic,1}(size(a,1))
+Base.similar(a::Array{T,2}, S::Type{Symbolic{T}}) where {T}            = Array{Symbolic,2}(size(a,1), size(a,2))
+Base.similar(a::Array{T}, m::Int) where {T<:Symbolic}                  = Array{Symbolic,1}(m)
+Base.similar(a::Array, ::Type{Symbolic{T}}, dims::Dims{N}) where {T,N} = Array{Symbolic,N}(dims)
+Base.similar(a::Array{T}, dims::Dims{N}) where {T<:Symbolic,N}         = Array{Symbolic,N}(dims)
 
 ############################################################
 
@@ -30,9 +47,6 @@ function setshow(prefix, suffix)
 end
 
 Base.show(io::IO, x::Symbolic) = print(io, "$show_prefix$(x.value)$show_suffix")
-
-Base.convert(::Type{Symbolic}, x) = Symbolic(x)
-Base.convert(::Type{Symbolic}, x::Symbolic) = x
 
 ############################################################
 
@@ -49,12 +63,19 @@ end
 
 ############################################################
 
-Base.zero(::Symbolic) = Symbolic(0)
-Base.one(::Symbolic) = Symbolic(1)
-Base.oneunit(::Symbolic) = Symbolic(1)
-Base.zero(::Type{Symbolic}) = Symbolic(0)
-Base.one(::Type{Symbolic}) = Symbolic(1)
-Base.oneunit(::Type{Symbolic}) = Symbolic(1)
+Base.zero(x::Symbolic{T}) where T = Symbolic(zero(x))
+Base.one(x::Symbolic{T}) where T = Symbolic(one(x))
+Base.oneunit(x::Symbolic{T}) where T = Symbolic(oneunit(x))
+Base.zero(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(0)
+Base.one(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(1)
+Base.oneunit(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(1)
+
+Base.zero(::Type{Symbolic{T}}) where T = Symbolic(zero(T))
+Base.one(::Type{Symbolic{T}}) where T = Symbolic(one(T))
+Base.oneunit(::Type{Symbolic{T}}) where T = Symbolic(one(T))
+Base.zero(::Type{Symbolic{T}}) where T<:Union{Symbol,Expr} = Symbolic(0)
+Base.one(::Type{Symbolic{T}}) where T<:Union{Symbol,Expr} = Symbolic(1)
+Base.oneunit(::Type{Symbolic{T}}) where T<:Union{Symbol,Expr} = Symbolic(1)
 
 Base.iszero(x::Symbolic) = iszero(x.value) # Compatibility
 iszero(x) = Base.iszero(x)
@@ -202,7 +223,8 @@ function _add(x, y)
     a = rawargs[1]
 
     s, a = sign(a)
-    a, i = mulsort(split_expr(a, :*)...); i = mul(s, i)
+    a, i = mulsort(split_expr(a, :*)...)
+    i = mul(s, i)
     for b in rawargs[2:end]
         if a isa Number && b isa Number && i isa Number
             a = a * i + b
@@ -211,9 +233,12 @@ function _add(x, y)
         end
 
         s, b = sign(b)
-        b, j = mulsort(split_expr(b, :*)...); j = mul(j, s)
+        b, j = mulsort(split_expr(b, :*)...)
+        j = mul(j, s)
         if b == a
             i = add(i, j)
+        elseif !isone(i) && i == j
+            a = add(a, b)
         else
             !iszero(a) && !iszero(i) && push!(args, isone(i) ? a : mul(a, i))
             a, i = b, j
@@ -451,6 +476,9 @@ macro verbose_call(name, symbols, expr)
 end
 
 function define_operators(verbose::Bool)
+
+    # One argument
+
     for (op, name) in ((:(Base.:+), identity), (:(Base.:-), neg), (:(Base.inv), inv),
                        (:(Base.conj), conj), (:(Base.transpose), transpose),
                        (:(Base.ctranspose), ctranspose))
@@ -460,6 +488,8 @@ function define_operators(verbose::Bool)
             @eval $op(x::Symbolic)::Symbolic = Symbolic($name(x.value))
         end
     end
+
+    # Two arguments
 
     for (op, name) in ((:(Base.:+), add), (:(Base.:-), sub), (:(Base.:*), mul), (:(Base.:/), div),
                        (:(Base.:\), idiv), (:(Base.://), rdiv), (:(Base.:^), pow))
@@ -471,6 +501,14 @@ function define_operators(verbose::Bool)
             @eval $op(x::Symbolic, y)::Symbolic = Symbolic($name(x.value, y))
             @eval $op(x, y::Symbolic)::Symbolic = Symbolic($name(x, y.value))
             @eval $op(x::Symbolic, y::Symbolic)::Symbolic = Symbolic($name(x.value, y.value))
+        end
+    end
+    # Need special treatment
+    for (op, name) in ((:(Base.:^), pow),)
+        if verbose
+            @eval $op(x::Symbolic, y::Integer)::Symbolic = @verbose_call $name (x, y) Symbolic($name(x.value, y))
+        else
+            @eval $op(x::Symbolic, y::Integer)::Symbolic = Symbolic($name(x.value, y))
         end
     end
 
@@ -488,12 +526,6 @@ function define_operators(verbose::Bool)
         end
     end
 
-    # Needs special treatment
-    if verbose
-        Base.:^(x::Symbolic, y::Integer)::Symbolic = @verbose_call $name (x, y) Symbolic(pow(x.value, y))
-    else
-        Base.:^(x::Symbolic, y::Integer)::Symbolic = Symbolic(pow(x.value, y))
-    end
 end
 
 define_operators(false)

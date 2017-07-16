@@ -14,6 +14,9 @@ using Base.Test
 @test 0 / a == 0
 @test a \ 0 == 0
 
+@test a / 0 == Inf * a
+@test -a / 0 == -Inf * a
+
 @test a + a == 2a
 @test a * 2 == 2a
 
@@ -32,3 +35,8 @@ using Base.Test
                        S"c * a + d * c"  S"c * b + d ^ 2"]
 @test [a b; c d]^-1 == [S"a ^ -1 * (1 + (b * (d - c * a ^ -1 * b) ^ -1 * c) / a)" S"-((a ^ -1 * b) / (d - c * a ^ -1 * b))";
      S"-(((d - c * a ^ -1 * b) ^ -1 * c) / a)" S"(d - c * a ^ -1 * b) ^ -1"]
+
+@def f = a - b
+@def g(b, a) = a - b
+
+@test f(4, 3) == -g(4, 3) == 1
