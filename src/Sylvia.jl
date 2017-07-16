@@ -63,9 +63,9 @@ end
 
 ############################################################
 
-Base.zero(x::Symbolic{T}) where T = Symbolic(zero(x))
-Base.one(x::Symbolic{T}) where T = Symbolic(one(x))
-Base.oneunit(x::Symbolic{T}) where T = Symbolic(oneunit(x))
+Base.zero(x::Symbolic{T}) where T = Symbolic(zero(x.value))
+Base.one(x::Symbolic{T}) where T = Symbolic(one(x.value))
+Base.oneunit(x::Symbolic{T}) where T = Symbolic(oneunit(x.value))
 Base.zero(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(0)
 Base.one(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(1)
 Base.oneunit(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(1)
@@ -73,6 +73,9 @@ Base.oneunit(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(1)
 Base.zero(::Type{Symbolic{T}}) where T = Symbolic(zero(T))
 Base.one(::Type{Symbolic{T}}) where T = Symbolic(one(T))
 Base.oneunit(::Type{Symbolic{T}}) where T = Symbolic(one(T))
+Base.zero(::Type{Symbolic}) = Symbolic(0)
+Base.one(::Type{Symbolic}) = Symbolic(1)
+Base.oneunit(::Type{Symbolic}) = Symbolic(1)
 Base.zero(::Type{Symbolic{T}}) where T<:Union{Symbol,Expr} = Symbolic(0)
 Base.one(::Type{Symbolic{T}}) where T<:Union{Symbol,Expr} = Symbolic(1)
 Base.oneunit(::Type{Symbolic{T}}) where T<:Union{Symbol,Expr} = Symbolic(1)
@@ -423,7 +426,17 @@ inv(x::Expr) = pow(x, -1)
 
 conj(x) = Base.conj(x)
 conj(x::Symbol) = :(conj($x))
-conj(x::Expr) = isconj(x) ? x.args[2] : :(conj($x))
+function conj(x::Expr)
+    isconj(x) && return x.args[2]
+    istranspose(x) && return ctranspose(x.args[1])
+    isctranspose(x) && return transpose(x.args[1])
+
+    isadd(x) && return reduce(add, map(conj, unroll_expr(x, :+)))
+
+    X = mulunroll(x)
+    length(X) == 1 && return :(conj($x))
+    reduce(mul, (map(conj, X)))
+end
 
 isconj(x) = false
 isconj(x::Expr) = iscall(x) && x.args[1] == :conj
