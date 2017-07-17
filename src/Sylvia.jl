@@ -12,13 +12,19 @@ end
 Symbolic(x::Symbolic) = Symbolic(x.value)
 Symbolic(A::AbstractArray) = convert(AbstractArray{Symbolic}, A)
 
-value(x::Symbolic) = x.value
-
 macro S_str(str)
     Symbolic(parse(str))
 end
 
+# value
+
+value(x) = x
+value(x::Symbolic) = x.value
+
+#convert
+
 Base.convert(T::Type, x::Symbolic{S}) where S                   = convert(T, x.value)
+Base.convert(T::Type{Any}, x::Symbolic{S}) where S              = convert(T, x.value)
 Base.convert(::Type{Symbolic}, x)                               = Symbolic(x)
 Base.convert(::Type{Symbolic{T}}, x) where T                    = Symbolic(x)
 Base.convert(::Type{Symbolic}, x::Symbolic)                     = x
@@ -47,6 +53,13 @@ function setshow(prefix, suffix)
 end
 
 Base.show(io::IO, x::Symbolic) = print(io, "$show_prefix$(x.value)$show_suffix")
+
+############################################################
+
+############################################################
+
+Core.eval(x::Symbolic) = eval(x.value)
+Core.eval(mod::Module, x::Symbolic) = eval(mod, x.value)
 
 ############################################################
 
@@ -98,6 +111,9 @@ idelemr(::Type{Val{:^}}) = 1
 iscall(x) = false
 iscall(x::Expr) = x.head == :call
 
+# symbols
+
+getsymbols(x::Symbolic) = getsymbols(x.value)
 getsymbols(::Number) = Set(Symbol[])
 getsymbols(x::Symbol) = Set(Symbol[x])
 getsymbols(A::AbstractArray) = mapreduce(getsymbols, union, A)
@@ -105,40 +121,47 @@ getsymbols(x::Expr) = getsymbols(Val{x.head}, x.args)
 getsymbols(::Any, args) = mapreduce(getsymbols, union, args)
 getsymbols(::Type{Val{:call}}, args) = mapreduce(getsymbols, union, args[2:end])
 
+hassymbols(x::Symbolic) = hassymbols(x.value)
 hassymbols(::Number) = false
 hassymbols(::Symbol) = true
 hassymbols(x::Expr) = hassymbols(Val{x.head}, x.args)
 hassymbols(::Any, args) = any(map(hassymbols, args))
 hassymbols(::Type{Val{:call}}, args) = any(map(hassymbols, args[2:end]))
 
+firstsymbol(x::Symbolic, d) = firstsymbol(x.value, d)
+firstsymbol(x, d=nothing) = (s = _firstsymbol(x)) == nothing ? d : s
 
-firstsymbol(x) = nothing
-firstsymbol(x::Symbol) = x
-firstsymbol(x::Expr) = firstsymbol(Val{x.head}, x.args)
-firstsymbol(x::AbstractArray) = for arg in x
-    (s = firstsymbol(arg)) != nothing && return s
-end
-firstsymbol(::Any, args) = firstsymbol(args)
-firstsymbol(::Type{Val{:call}}, args) = firstsymbol(args[2:end])
+_firstsymbol(x) = nothing
+_firstsymbol(x::Symbol) = x
+_firstsymbol(x::AbstractArray) = for arg in x
+    (s = _firstsymbol(arg)) != nothing && return s
+end # else return nothing
+_firstsymbol(x::Expr) = _firstsymbol(Val{x.head}, x.args)
+_firstsymbol(::Any, args) = _firstsymbol(args)
+_firstsymbol(::Type{Val{:call}}, args) = _firstsymbol(args[2:end])
+
+# isless
 
 isless(x, y) = Base.isless(x, y)
-isless(::Union{Symbol, Expr}, ::Number) = false
-isless(::Number, ::Union{Symbol, Expr}) = true
-isless(x::Symbol, y::Expr) = isless(x, firstsymbol(y))
-isless(x::Expr, y::Symbol) = isless(firstsymbol(x), y)
-isless(x::Expr, y::Expr) = isless(firstsymbol(x), firstsymbol(y))
-isless(::Any, ::Void) = false
-isless(::Void, ::Any) = true
-isless(::Void, ::Void) = true
 
-sort(x) = Base.sort(x, lt=isless)
+# commutes
+
+commutes(x, y) = false
+commutes(::Number, ::Number) = true
+commutes(::Number, ::Any) = true
+commutes(::Any, ::Number) = false
+
+# sort
+
+add_order(x, y) = isless(string(firstsymbol(x, x)), string(firstsymbol(y, y)))
+mul_order(x, y) = commutes(x, y)
 
 # Helper functions
 
-_split_expr(x, f::Symbol) = (x, idelemr(Val{f}))
 split_expr(x, f::Symbol) = _split_expr(x, f)
 split_expr(x::Expr, f::Symbol) = _split_expr(Val{x.head}, x, f)
 
+_split_expr(x, f::Symbol) = (x, idelemr(Val{f}))
 _split_expr(::Any, x, f::Symbol) = _split_expr(x, f)
 function _split_expr(::Type{Val{:call}}, x::Expr, f::Symbol)
     x.args[1] != f && return _split_expr(x, f)
@@ -147,7 +170,6 @@ function _split_expr(::Type{Val{:call}}, x::Expr, f::Symbol)
 end
 
 unroll_expr(x, ::Symbol) = [x]
-unroll_expr(x::QuoteNode, ::Symbol) = [x.value]
 unroll_expr(x::Expr, f::Symbol) = x.args[1] == f ? x.args[2:end] : [x]
 
 mulsort(a, i) = begin
@@ -161,7 +183,7 @@ eq(x, y) = x == y
 # sign
 
 sign(x) = isneg(x) ? (-1, neg(x)) : (1, x)
-sign(x, s) = isneg(s) ? neg(x) : x
+sign(s, x) = isneg(s) ? neg(x) : x
 
 # neg
 
@@ -221,7 +243,7 @@ function _add(x, y)
     x == y && return mul(2, x)
     x == neg(y) && return 0
 
-    rawargs = sort([addunroll(x); addunroll(y)])
+    rawargs = sort([addunroll(x); addunroll(y)], lt=add_order)
     args = []
     a = rawargs[1]
 
@@ -264,8 +286,8 @@ function _add(x, y)
         isneg(a) ? push!(subargs, neg(a)) : push!(addargs, a)
     end
 
-    addexpr = addcollect(sort(addargs))
-    subexpr = addcollect(sort(subargs))
+    addexpr = addcollect(sort(addargs, lt=add_order))
+    subexpr = addcollect(sort(subargs, lt=add_order))
 
     iszero(subexpr) && return addexpr
     iszero(addexpr) && return :(-$subexpr)
@@ -296,6 +318,8 @@ end
 ismul(x) = false
 ismul(x::Expr) = iscall(x) && x.args[1] == :*
 
+mul(::UniformScaling, x) = UniformScaling(x)
+mul(x, ::UniformScaling) = UniformScaling(x)
 mul(x::Number, y::Number) = x * y
 function mul(x::Union{Symbol, Expr}, n::Number)
     iszero(n) && return 0
@@ -316,7 +340,7 @@ function _mul(x, y)
     s_, y = sign(y)
     s = mul(s, s_)
 
-    rawargs = [mulunroll(x); mulunroll(y)]
+    rawargs = sort([mulunroll(x); mulunroll(y)], lt=mul_order)
     args = []
     a = rawargs[1]
 
@@ -348,7 +372,7 @@ function _mul(x, y)
     end
 
     if length(args) == 1
-        return sign(args[1], s)
+        return sign(s, args[1])
     end
 
     # Sort out division
@@ -365,10 +389,10 @@ function _mul(x, y)
         push!(args, iszero(i) ? 1 : isone(i) ? a : pow(a, i))
     end
 
-    mulexpr = mulcollect(args)
-    divexpr = mulcollect(divargs)
+    mulexpr = mulcollect(sort(args, lt=mul_order))
+    divexpr = mulcollect(sort(divargs, lt=mul_order))
 
-    sign(isone(divexpr) ? mulexpr : :($mulexpr / $divexpr), s)
+    sign(s, isone(divexpr) ? mulexpr : :($mulexpr / $divexpr))
 end
 mul(x::Symbolic, y::Number) = mul(y, x)
 
@@ -409,10 +433,18 @@ pow(x::Union{Symbol, Expr}, n::Number) = iszero(n) ? 1 : isone(n) ? x : _pow(x, 
 pow(n::Number, x::Union{Symbol, Expr}) = isone(n) ? n : _pow(n, x)
 pow(x, y) = _pow(x, y)
 function _pow(x, y)
+    s, x = sign(x)
     x, i = split_expr(x, :^)
     i, j = split_expr(i, :*)
     y = mul(y, isone(i) ? j : mul(i, j))
-    iszero(y) ? 1 : isone(y) ? x : :($x ^ $y)
+    iszero(y) && return 1
+
+    if isdiv(x) && isneg(y)
+        x = div(reverse(split_expr(x, :/))...)
+        y = neg(y)
+    end
+    x = sign(s, x)
+    isone(y) ? x : :(($x) ^ $y)
 end
 
 # inv
@@ -571,7 +603,8 @@ end
 
 # def
 
-function _def(mod, expr)
+_def(mod::Module, expr::Symbol) = throw(ArgumentError("invalid function definition"))
+function _def(mod::Module, expr::Expr)
     if expr.head ≠ :(=)
         throw(ArgumentError("invalid function definition"))
     end
@@ -589,23 +622,34 @@ function _def(mod, expr)
     return esc(Expr(:(=), Expr(:call, name, symbols...), body))
 end
 
-macro def(expr) _def(Main, expr) end
+macro def(expr) _def(__module__, expr) end
 macro def(mod, expr) _def(mod, expr) end
 
 # λ
 
-macro λ(expr)
-    if expr isa Expr && expr.head == :(->)
-        if expr.args[1].head ≠ :tuple
-            throw(ArgumentError("invalid lambda definition"))
-        end
-        body = expressify(Main.eval(expr.args[2]))
-        symbols = expr.args[1].args
-    else
-        body = expressify(Main.eval(expr))
-        symbols = sort(collect(getsymbols(body)))
+_parse_args(args::Symbol) = (args,)
+function _parse_args(args::Expr)
+    if args.head ≠ :tuple
+        throw(ArgumentError("invalid argument list"))
     end
-    return esc(Expr(:(->), Expr(:tuple, symbols...), body))
+    return args.args
 end
+
+function _lambda_implicit(mod::Module, expr)
+    body = expressify(eval(mod, expr))
+    symbols = sort(collect(getsymbols(body)))
+    esc(Expr(:(->), Expr(:tuple, symbols...), body))
+end
+
+_lambda(mod::Module, x::Symbol) = _lambda_implicit(mod, x)
+function _lambda(mod::Module, expr::Expr)
+    expr.head ≠ :(->) && return _lambda_implicit(mod, expr)
+    symbols = _parse_args(expr.args[1])
+    body = expressify(eval(mod, expr.args[2]))
+    esc(Expr(:(->), Expr(:tuple, symbols...), body))
+end
+
+macro λ(expr) _lambda(__module__, expr) end
+macro λ(mod, expr) _lambda(mod, expr) end
 
 end # module
