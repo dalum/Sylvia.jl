@@ -79,9 +79,9 @@ using Base.Test
 
 A = [a b; c d]
 
-@test A == Symbolic[:a :b; :c :d]
-@test A.' == Symbolic[:(a.') :(c.'); :(b.') :(d.')]
-@test A' == Symbolic[:(a') :(c'); :(b') :(d')]
+@test A   == [S"a" S"b"; S"c" S"d"]
+@test A.' == [S"a.'" S"c.'"; S"b.'" S"d.'"]
+@test A'  == [S"a'" S"c'"; S"b'" S"d'"]
 @test A^2 == [S"a ^ 2 + b * c"  S"a * b + b * d"
               S"c * a + d * c"  S"c * b + d ^ 2"]
 @test A^-1 == [S"a ^ -1 * (1 + (b * (d - c * a ^ -1 * b) ^ -1 * c) / a)"  S"-((a ^ -1 * b) / (d - c * a ^ -1 * b))";

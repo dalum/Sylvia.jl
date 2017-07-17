@@ -622,7 +622,11 @@ function _def(mod::Module, expr::Expr)
     return esc(Expr(:(=), Expr(:call, name, symbols...), body))
 end
 
-macro def(expr) _def(__module__, expr) end
+if VERSION >= v"0.7.0-DEV"
+    macro def(expr) _def(__module__, expr) end
+else
+    macro def(expr) _def(Main, expr) end
+end
 macro def(mod, expr) _def(mod, expr) end
 
 # λ
@@ -649,7 +653,11 @@ function _lambda(mod::Module, expr::Expr)
     esc(Expr(:(->), Expr(:tuple, symbols...), body))
 end
 
-macro λ(expr) _lambda(__module__, expr) end
+if VERSION >= v"0.7.0-DEV"
+    macro λ(expr) _lambda(__module__, expr) end
+else
+    macro λ(expr) _lambda(Main, expr) end
+end
 macro λ(mod, expr) _lambda(mod, expr) end
 
 end # module
