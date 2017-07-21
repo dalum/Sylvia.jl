@@ -1,5 +1,7 @@
 module Sylvia
 
+__precompile__(true)
+
 ############################################################
 
 export @S_str, @def, @λ, @symbols, Symbolic
