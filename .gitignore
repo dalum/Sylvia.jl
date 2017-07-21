@@ -1,5 +1,5 @@
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
-/src/_init.jl
+/src/.init.jl
 *~
