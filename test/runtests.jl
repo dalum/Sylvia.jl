@@ -96,10 +96,10 @@ A = [a b; c d]
 
 @test f(4, 3) == -g(4, 3) == @λ(a-b)(4, 3) == 1
 
-# @test_throws ArgumentError @def(f)
-# @test_throws ArgumentError @def(f -> a + b)
-# @test_throws ArgumentError @def(4 = 4)
-# @test_throws ArgumentError @λ([a, b] -> a + b)
+@test_throws ArgumentError eval(@macroexpand @def f)
+@test_throws ArgumentError eval(@macroexpand @def f -> a + b)
+@test_throws ArgumentError eval(@macroexpand @def 4 = 4)
+@test_throws ArgumentError eval(@macroexpand @λ [a, b] -> a + b)
 
 # Symbols
 
