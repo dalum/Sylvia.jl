@@ -2,8 +2,6 @@ module Sylvia
 
 __precompile__(true)
 
-############################################################
-
 export @S_str, @def, @λ, @symbols, Symbolic
 
 include("symbolic.jl")
@@ -18,26 +16,7 @@ end
 
 include("identities.jl")
 include("expression.jl")
-
-# isless
-
-isless(x, y) = Base.isless(x, y)
-
-# commutes
-
-commutes(x, y) = false
-commutes(::Number, ::Number) = true
-commutes(::Number, ::Any) = true
-commutes(::Any, ::Number) = false
-
-# sort
-
-add_order(x, y) = isless(string(firstsymbol(x, x)), string(firstsymbol(y, y)))
-mul_order(x, y) = commutes(x, y)
-
-# Helper functions
-
-
+include("assumptions.jl")
 include("math.jl")
 include("operators.jl")
 define_operators(false)
