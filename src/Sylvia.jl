@@ -2,7 +2,7 @@ module Sylvia
 
 __precompile__(true)
 
-export @S_str, @def, @λ, @symbols, Symbolic
+export @S_str, @def, @λ, @symbols, @assume, Symbolic
 
 include("symbolic.jl")
 include("show.jl")
@@ -17,6 +17,9 @@ end
 include("identities.jl")
 include("expression.jl")
 include("assumptions.jl")
+
+import .Assumptions: @assume
+
 include("math.jl")
 include("operators.jl")
 define_operators(false)
