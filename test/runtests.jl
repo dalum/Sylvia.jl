@@ -5,7 +5,7 @@ using Base.Test
 
 # Conversion
 @test Symbolic(a) == a == :a
-@test [a] == Symbolic[:a] == Symbolic([:a])
+@test [a] == Symbolic[:a]
 @test convert(Int, Symbolic(1)) === Int(1)
 @test convert(Symbolic{AbstractFloat}, Symbolic(1)) === Symbolic(1.0)
 @test iszero(Symbolic(0)) & iszero(Symbolic(0.0))

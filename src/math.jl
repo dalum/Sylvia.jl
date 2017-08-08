@@ -1,6 +1,7 @@
 # eq
 
-eq(x, y) = x == y
+Base.hash(x::Symbolic{T}) where {T} = hash(x.value)
+Base.:(==)(x::Symbolic{T}, y::Symbolic{S}) where {T, S} = x.value == y.value
 
 # sign
 
@@ -9,12 +10,14 @@ sign(s, x) = isneg(s) ? neg(x) : x
 
 # neg
 
-isneg(x::UniformScaling) = x < 0
+isneg(x::Symbolic{T}) where T = isneg(x.value)
+isneg(x::UniformScaling) = x.λ < 0
 isneg(x::Real) = x < 0
 isneg(x::Complex) = real(x) < 0
 isneg(x::Symbol) = false
 isneg(x::Expr) = iscall(x) && x.args[1] == :- && length(x.args) == 2
 
+Base.:-(x::Symbolic{T}) where T = neg(x.value)
 neg(x::Number) = -x
 neg(x::Symbol) = :(-$x)
 function neg(x::Expr)
@@ -37,7 +40,11 @@ end
 isadd(x) = false
 isadd(x::Expr) = iscall(x) && x.args[1] == :+
 
-add(x::Number, y::Number) = x + y
+Base.:+(x::Number, y::Symbolic) = +(promote(x, y)...)
+Base.:+(x::Symbolic, y::Number) = +(promote(x, y)...)
+
+Base.:+(x::Symbolic{<:Number}, y::Symbolic{<:Number}) = Symbolic(x.value + y.value)
+
 add(x::Union{Symbol, Expr}, n::Number) = iszero(n) ? x : _add(x, n)
 add(n::Number, x::Union{Symbol, Expr}) = add(x, n)
 add(x, y) = _add(x, y)
