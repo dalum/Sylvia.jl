@@ -1,7 +1,24 @@
+isneg(x::Symbolic{T}) where T = isneg(x.value)
+isneg(x::UniformScaling) = x.λ < 0
+isneg(x::Real) = x < 0
+isneg(x::Complex) = real(x) < 0
+isneg(A::AbstractArray) = false
+isneg(x::Symbol) = false
+isneg(x::Expr) = iscall(x) && x.args[1] == :- && length(x.args) == 2
+
+isadd(x) = false
+isadd(x::Expr) = iscall(x) && x.args[1] == :+
+
+ismul(x) = false
+ismul(x::Expr) = iscall(x) && x.args[1] == :*
+
+# hash
+
+hash = Base.hash
+
 # eq
 
-Base.hash(x::Symbolic{T}) where {T} = hash(x.value)
-Base.:(==)(x::Symbolic{T}, y::Symbolic{S}) where {T, S} = x.value == y.value
+eq = Base.:(==)
 
 # sign
 
@@ -10,15 +27,8 @@ sign(s, x) = isneg(s) ? neg(x) : x
 
 # neg
 
-isneg(x::Symbolic{T}) where T = isneg(x.value)
-isneg(x::UniformScaling) = x.λ < 0
-isneg(x::Real) = x < 0
-isneg(x::Complex) = real(x) < 0
-isneg(x::Symbol) = false
-isneg(x::Expr) = iscall(x) && x.args[1] == :- && length(x.args) == 2
-
-Base.:-(x::Symbolic{T}) where T = neg(x.value)
 neg(x::Number) = -x
+neg(A::AbstractArray) = -A
 neg(x::Symbol) = :(-$x)
 function neg(x::Expr)
     xs = unroll_expr(x, :+)
@@ -37,26 +47,19 @@ end
 
 # add
 
-isadd(x) = false
-isadd(x::Expr) = iscall(x) && x.args[1] == :+
-
-Base.:+(x::Number, y::Symbolic) = +(promote(x, y)...)
-Base.:+(x::Symbolic, y::Number) = +(promote(x, y)...)
-
-Base.:+(x::Symbolic{<:Number}, y::Symbolic{<:Number}) = Symbolic(x.value + y.value)
-
-add(x::Union{Symbol, Expr}, n::Number) = iszero(n) ? x : _add(x, n)
-add(n::Number, x::Union{Symbol, Expr}) = add(x, n)
-add(x, y) = _add(x, y)
+add(x, y) = x + y
+add(x::Union{Symbol, Expr}, y) = iszero(y) ? x : _add(x, y)
+add(x, y::Union{Symbol, Expr}) = iszero(x) ? y : _add(x, y)
+add(x::Union{Symbol, Expr}, y::Union{Symbol, Expr}) = _add(x, y)
 
 function _add(x, y)
-    x == y && return mul(2, x)
-    x == neg(y) && return 0
+    eq(x, y) && return mul(2, x)
+    eq(x, neg(y)) && return 0
 
-    rawargs = sort([addunroll(x); addunroll(y)], lt=add_order)
+    rawargs = sort(vcat(addunroll(x), addunroll(y)), lt=addorder)
     args = []
-    a = rawargs[1]
 
+    a = first(rawargs)
     s, a = sign(a)
     a, i = mulsort(split_expr(a, :*)...)
     i = mul(s, i)
@@ -96,8 +99,8 @@ function _add(x, y)
         isneg(a) ? push!(subargs, neg(a)) : push!(addargs, a)
     end
 
-    addexpr = addcollect(sort(addargs, lt=add_order))
-    subexpr = addcollect(sort(subargs, lt=add_order))
+    addexpr = addcollect(sort(addargs, lt=addorder))
+    subexpr = addcollect(sort(subargs, lt=addorder))
 
     iszero(subexpr) && return addexpr
     iszero(addexpr) && return :(-$subexpr)
@@ -110,32 +113,37 @@ sub(x, y) = add(x, neg(y))
 
 # mul
 
-ismul(x) = false
-ismul(x::Expr) = iscall(x) && x.args[1] == :*
-
+mul(x, y) = x * y
 mul(::UniformScaling, x) = UniformScaling(x)
 mul(x, ::UniformScaling) = UniformScaling(x)
-mul(x::Number, y::Number) = x * y
-function mul(x::Union{Symbol, Expr}, n::Number)
-    iszero(n) && return 0
-    isone(n) && return x
-    isneg(n) && isneg(x) && return mul(neg(n), neg(x))
-    isneg(n) && return neg(mul(neg(n), x))
-    isneg(x) && return neg(mul(n, neg(x)))
-    return _mul(n, x)
+function mul(x::Union{Number, AbstractArray}, y::Union{Symbol, Expr})
+    iszero(x) && return 0
+    isone(x) && return y
+    isneg(x) && isneg(y) && return mul(neg(x), neg(y))
+    isneg(x) && return neg(mul(neg(x), y))
+    isneg(y) && return neg(mul(x, neg(y)))
+    return _mul(x, y)
 end
-mul(n::Number, x::Union{Symbol, Expr}) = mul(x, n)
-mul(x, y) = _mul(x, y)
+function mul(x::Union{Symbol, Expr}, y::AbstractArray)
+    iszero(y) && return 0
+    isone(y) && return x
+    isneg(x) && isneg(y) && return mul(neg(x), neg(y))
+    isneg(x) && return neg(mul(neg(x), y))
+    isneg(y) && return neg(mul(x, neg(y)))
+    return _mul(x, y)
+end
+mul(x::Union{Symbol, Expr}, y::Number) = mul(y, x)
+mul(x::Union{Symbol, Expr}, y::Union{Symbol, Expr}) = _mul(x, y)
 
 function _mul(x, y)
-    x == y && return pow(x, 2)
-    x == inv(y) && return 1
+    eq(x, y) && return pow(x, 2)
+    eq(x, inv(y)) && return 1
 
     s, x = sign(x)
     s_, y = sign(y)
     s = mul(s, s_)
 
-    rawargs = sort([mulunroll(x); mulunroll(y)], lt=mul_order)
+    rawargs = sort([mulunroll(x); mulunroll(y)], lt=mulorder)
     args = []
     a = rawargs[1]
 
@@ -184,8 +192,8 @@ function _mul(x, y)
         push!(args, iszero(i) ? 1 : isone(i) ? a : pow(a, i))
     end
 
-    mulexpr = mulcollect(sort(args, lt=mul_order))
-    divexpr = mulcollect(sort(divargs, lt=mul_order))
+    mulexpr = mulcollect(sort(args, lt=mulorder))
+    divexpr = mulcollect(sort(divargs, lt=mulorder))
 
     sign(s, isone(divexpr) ? mulexpr : :($mulexpr / $divexpr))
 end

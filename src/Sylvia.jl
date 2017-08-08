@@ -1,4 +1,4 @@
-__precompile__(true)
+#__precompile__(true)
 
 module Sylvia
 
@@ -59,25 +59,25 @@ commutes(::Any, ::Number) = false
 
 # sort
 
-add_order(x, y) = isless(string(firstsymbol(x, x)), string(firstsymbol(y, y)))
-mul_order(x, y) = commutes(x, y)
+addorder(x, y) = isless(string(firstsymbol(x, x)), string(firstsymbol(y, y)))
+mulorder(x, y) = commutes(x, y)
 
 import .Assumptions: @assume
 
 include("math.jl")
-#include("operators.jl")
-# define_operators(false)
+include("operators.jl")
+define_operators(false)
 
-# function debug(debug::Bool = true)
-#     if debug
-#         setshow("S\"", "\"")
-#         define_operators(true)
-#     else
-#         setshow("", "")
-#         define_operators(false)
-#     end
-#     print("Debug: $debug")
-# end
+function debug(debug::Bool = true)
+    if debug
+        setshow("S\"", "\"")
+        define_operators(true)
+    else
+        setshow("", "")
+        define_operators(false)
+    end
+    print("Debug: $debug")
+end
 
 include("def.jl")
 

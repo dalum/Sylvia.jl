@@ -1,5 +1,6 @@
 expressify(a) = a # Catch all
-expressify(a::Symbolic) = value(a)
+expressify(a::Expr) = Expr(a.head, map(expressify, a.args)...)
+expressify(a::Symbolic) = expressify(value(a))
 expressify(V::AbstractVector) = Expr(:vect, value.(V)...)
 expressify(A::AbstractMatrix) = Expr(:vcat, mapslices(x -> Expr(:row, value.(x)...), A, 2)...)
 

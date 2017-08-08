@@ -54,7 +54,7 @@ function addcollect(x)
     Expr(:call, :+, x...)
 end
 
-addunroll(x) = x
+addunroll(x) = [x]
 function addunroll(x::Expr)
     isneg(x) && return map(neg, unroll_expr(x.args[2], :+))
 
