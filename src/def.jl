@@ -1,14 +1,8 @@
 expressify(a) = a # Catch all
-expressify(a::Expr) = Expr(a.head, map(expressify, a.args)...)
+expressify(a::Expr) = Expr(a.head, expressify.(a.args)...)
 expressify(a::Symbolic) = expressify(value(a))
 expressify(V::AbstractVector) = Expr(:vect, value.(V)...)
 expressify(A::AbstractMatrix) = Expr(:vcat, mapslices(x -> Expr(:row, value.(x)...), A, 2)...)
-
-# symbols
-
-macro symbols(names::Symbol...)
-    esc(Expr(:block, (Expr(:(=), name, Symbolic(name)) for name in names)..., :nothing))
-end
 
 # def
 
