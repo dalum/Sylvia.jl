@@ -14,6 +14,7 @@ Base.start(F::Factorization) = start(F.data)
 Base.next(F::Factorization, state) = next(F.data, state)
 Base.done(F::Factorization, state) = done(F.data, state)
 Base.endof(F::Factorization) = endof(F.data)
+Base.:(==)(F1::Factorization, F2::Factorization) = F1.op == F2.op && F1.data == F2.data
 
 getsymbols(x::Symbolic) = getsymbols(x.value)
 getsymbols(::Number) = Set(Symbol[])
@@ -42,6 +43,10 @@ hassymbols(x::Expr) = hassymbols(Val{x.head}, x.args)
 hassymbols(::Any, args) = any(map(hassymbols, args))
 hassymbols(::Type{Val{:call}}, args) = any(map(hassymbols, args[2:end]))
 
+fingerprint(x) = ""
+fingerprint(x::Symbolic{Symbol}) = string(x)
+fingerprint(x::Symbolic{Expr}) = mapreduce(fingerprint, *, value(x).args)
+
 firstsymbol(x::Symbolic, d) = firstsymbol(x.value, d)
 firstsymbol(x, d=nothing) = (s = _firstsymbol(x)) == nothing ? d : s
 
@@ -68,32 +73,41 @@ end
 #="""
     commutesort(x, f)
 """=#
-commutesort(f, x::Symbolic) = x
-commutesort(f, x::Symbolic{Expr}) = join(f, commutesort(f, split(f, x)))
-commutesort(f, terms::AbstractVector{<:Symbolic}) = commutesort!(f, copy(terms))
-function commutesort!(f, terms::AbstractVector{<:Symbolic})
-    terms = reverse!(terms)
-    sorted_terms = Symbolic[]
-
-    temp = Symbolic[pop!(terms)]
-    while length(terms) > 0
-        x = pop!(terms)
-        if iscommutative(f, x, temp[1])
-            ind = findfirst(y -> isless(string(x), string(y)), temp)
-            if ind > 0
-                insert!(temp, ind, x)
-            else
-                push!(temp, x)
-            end
-        else
-            append!(sorted_terms, temp)
-            if length(terms) > 0
-                temp = Symbolic[pop!(terms)]
-            end
+commutesort(f, x::Symbolic; kw...) = x
+commutesort(f, x::Symbolic{Expr}; kw...) = join(f, commutesort(f, split(f, x); kw...))
+commutesort(f, terms::AbstractVector{<:Symbolic}; kw...) = commutesort!(f, copy(terms); kw...)
+function commutesort!(f, terms::AbstractVector{<:Symbolic}; lt=(x,y) -> isless(fingerprint(x), fingerprint(y)), by=identity)
+    x0, a = next(terms, start(terms))
+    x, b = next(terms, a)
+    while !done(terms, b)
+        if !iscommutative(f, x, x0)
+            terms[a:(b-1)] .= sort(terms[a:(b-1)], lt=lt, by=by)
+            x0, a = x, b
         end
+        x, b = next(terms, b)
     end
-    append!(sorted_terms, temp)
-    return sorted_terms
+    terms[a:(b-1)] .= sort(terms[a:(b-1)], lt=lt, by=by)
+
+    # terms = reverse!(terms)
+    # sorted_terms = Symbolic[]
+
+    # temp = Symbolic[pop!(terms)]
+    # while length(terms) > 0
+    #     x = pop!(terms)
+    #     if iscommutative(f, x, temp[1])
+    #         push!(temp, x)
+    #     else
+    #         sort!(temp, lt=lt, by=by)
+    #         append!(sorted_terms, temp)
+    #         if length(terms) > 0
+    #             temp = Symbolic[pop!(terms)]
+    #         end
+    #     end
+    # end
+    # sort!(temp, lt=lt, by=by)
+    # append!(sorted_terms, temp)
+    # append!(terms, sorted_terms)
+    return terms
 end
 
 """

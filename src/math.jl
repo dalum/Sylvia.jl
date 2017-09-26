@@ -90,10 +90,14 @@ end
 
 function collapse(::typeof(+), input::AbstractVector{<:Symbolic})
     output = Symbolic[]
-
-    input = mapreduce(x->reduce(*, x), vcat, countrepeated(input))
     a = factorize(*, input[1])
-    i, a = reduce(a[1:end-1]), a[end]
+
+    if a[1] isa Symbolic{<:Number}
+        i, a = a[1], reduce(a[2:end])
+    else
+        i, a = a[0], reduce(a)
+    end
+
     for b in input[2:end]
         if all(x->x isa Symbolic{<:Number}, (a, i, b))
             a = i * a * b
@@ -101,11 +105,14 @@ function collapse(::typeof(+), input::AbstractVector{<:Symbolic})
         end
 
         b = factorize(*, b)
-        j, b = reduce(b[1:end-1]), b[end]
+        if b[1] isa Symbolic{<:Number}
+            j, b = b[1], reduce(b[2:end])
+        else
+            j, b = b[0], reduce(b)
+        end
+
         if a == b
             i += j
-        elseif !isone(i) && i == j
-            a += b
         else
             !iszero(a) && !iszero(i) && push!(output, isone(i) ? a : i * a)
             a, i = b, j
@@ -125,26 +132,25 @@ end
 
 function collapse(::typeof(*), input::AbstractVector{<:Symbolic})
     output = Symbolic[]
-
-    a, i = factorize(^, input[1])[1:2]
+    a, p = factorize(^, input[1])[1:2]
 
     for b in input[2:end]
-        if all(x->x isa Number, value.((a, i, b)))
-            a = a^i * b
+        if all(x->x isa Symbolic{<:Number}, (a, p, b))
+            a = a^p * b
             continue
         end
 
-        b, j = factorize(^, b)[1:2]
+        b, q = factorize(^, b)[1:2]
         if b == a
-            i += j
+            p += q
         else
-            !isone(a) && !iszero(i) && push!(output, isone(i) ? a : a^i)
-            a, i = b, j
+            !isone(a) && !iszero(p) && push!(output, isone(p) ? a : a^p)
+            a, p = b, q
         end
     end
     # Push final element
-    if (!isone(a) && !iszero(i)) || length(output) == 0
-        push!(output, iszero(i) ? S"1" : isone(i) ? a : a^i)
+    if (!isone(a) && !iszero(p)) || length(output) == 0
+        push!(output, iszero(p) ? ONE : isone(p) ? a : a^p)
     end
     if length(output) == 1
         return output
@@ -159,16 +165,6 @@ function collapse(::typeof(*), input::AbstractVector{<:Symbolic})
 end
 
 # add
-
-# add(x, y) = x + y
-# add(x::Symbolic, y::Symbolic) = add(x.value, y.value)
-# add(x::Union{Symbol, Expr}, y) = iszero(y) ? x : _add(x, y)
-# add(x, y::Union{Symbol, Expr}) = iszero(x) ? y : _add(x, y)
-# function add(x::Union{Symbol, Expr}, y::Union{Symbol, Expr})
-#     eq(x, y) && return mul(2, x)
-#     eq(x, neg(y)) && return 0
-#     return _add(x, y)
-# end
 
 Base.:+(x::Symbolic, y::Symbolic) = derived(+, x, y)
 Base.:+(x::SymbolOrExpr, y::SymbolOrExpr) = add(x, y)
@@ -186,82 +182,18 @@ function add(xs::Symbolic...)::Symbolic
         return xs[1]
     end
 
-    # # Sort out division
-    # divargs = []
-    # a, i = split_expr(pop!(args), :^)
-    # while length(args) > 0 && isnegative(i)
-    #     push!(divargs, isone(neg(i)) ? a : pow(a, neg(i)))
-    #     a, i = split_expr(pop!(args), :^)
-    # end
-    # if isnegative(i)
-    #     push!(divargs, isone(neg(i)) ? a : pow(a, neg(i)))
-    #     push!(args, 1)
-    # else
-    #     push!(args, iszero(i) ? 1 : isone(i) ? a : pow(a, i))
-    # end
-
-    mulexpr = derived(+, commutesort(+, xs)...)
-    # return isnegative(s) ? -mulexpr : mulexpr
-    # divexpr = mulcollect(sort(divargs, lt=mulorder))
-
-    # sign(s, isone(divexpr) ? mulexpr : :($mulexpr / $divexpr))
+    commutesort(+, xs, lt=isless, by=isnegative)
+    addexpr = derived(+, xs...)
 end
-
-# function Base.:+(x::Symbolic, y::Symbolic)::Symbolic
-#     rawargs = sort(vcat(addunroll(x), addunroll(y)), lt=addorder)
-#     args = []
-
-#     a = first(rawargs)
-#     s, a = sign(a)
-#     a, i = mulsort(split_expr(a, :*)...)
-#     i = *(s, i)
-#     for b in rawargs[2:end]
-#         if a isa Number && b isa Number && i isa Number
-#             a = a * i + b
-#             i = 1
-#             continue
-#         end
-
-#         s, b = sign(b)
-#         b, j = mulsort(split_expr(b, :*)...)
-#         j = *(j, s)
-#         if b == a
-#             i = add(i, j)
-#         elseif !isone(i) && i == j
-#             a = add(a, b)
-#         else
-#             !iszero(a) && !iszero(i) && push!(args, isone(i) ? a : *(a, i))
-#             a, i = b, j
-#         end
-#     end
-#     # Push final element
-#     !iszero(a) && !iszero(i) && push!(args, isone(i) ? a : *(a, i))
-
-#     if length(args) == 0
-#         return 0
-#     end
-#     if length(args) == 1
-#         return args[1]
-#     end
-
-#     subargs = []
-#     addargs = []
-#     while length(args) > 0
-#         a = pop!(args)
-#         isnegative(a) ? push!(subargs, neg(a)) : push!(addargs, a)
-#     end
-
-#     addexpr = addcollect(sort(addargs, lt=addorder))
-#     subexpr = addcollect(sort(subargs, lt=addorder))
-
-#     iszero(subexpr) && return addexpr
-#     iszero(addexpr) && return :(-$subexpr)
-#     return :($addexpr - $subexpr)
-# end
 
 # sub
 
-sub(x, y) = add(x, -y)
+Base.:-(x::Symbolic, y::Symbolic) = derived(-, x, y)
+Base.:-(x::SymbolOrExpr, y::SymbolOrExpr) = subtract(x, y)
+Base.:-(x::SymbolOrExpr, y::Symbolic) = subtract(x, y)
+Base.:-(x::Symbolic, y::SymbolOrExpr) = subtract(x, y)
+
+subtract(x, y) = add(x, -y)
 
 # mul
 
@@ -298,7 +230,7 @@ function multiply(xs::Symbolic...)::Symbolic
     #     push!(args, iszero(i) ? 1 : isone(i) ? a : pow(a, i))
     # end
 
-    mulexpr = derived(*, commutesort(*, xs)...)
+    mulexpr = derived(*, xs...)
     # return isnegative(s) ? -mulexpr : mulexpr
     # divexpr = mulcollect(sort(divargs, lt=mulorder))
 
@@ -330,24 +262,33 @@ _rdiv(x, y) = :($x // $y)
 
 # pow
 
-pow(x::Union{Symbol, Expr}, n::Number) = iszero(n) ? 1 : isone(n) ? x : _pow(x, n)
-pow(n::Number, x::Union{Symbol, Expr}) = isone(n) ? n : _pow(n, x)
-pow(x, y) = _pow(x, y)
+Base.:^(x::Symbolic, y::Symbolic) = derived(^, x, y)
+Base.:^(x::SymbolOrExpr, y::SymbolOrExpr) = pow(x, y)
+Base.:^(x::SymbolOrExpr, y::Symbolic) = pow(x, y)
+Base.:^(x::Symbolic, y::SymbolOrExpr) = pow(x, y)
 
-function _pow(x, y)
-    s, x = sign(x)
-    x, i = split_expr(x, :^)
-    i, j = split_expr(i, :*)
-    y = mul(y, isone(i) ? j : mul(i, j))
-    iszero(y) && return 1
-
-    if isdiv(x) && isnegative(y)
-        x = div(reverse(split_expr(x, :/))...)
-        y = neg(y)
-    end
-    x = sign(s, x)
-    isone(y) ? x : :(($x) ^ $y)
+function pow(x, y)
+    isone(y) ? x : derived(^, x, y)
 end
+
+# pow(x::Union{Symbol, Expr}, n::Number) = iszero(n) ? 1 : isone(n) ? x : _pow(x, n)
+# pow(n::Number, x::Union{Symbol, Expr}) = isone(n) ? n : _pow(n, x)
+# pow(x, y) = _pow(x, y)
+
+# function _pow(x, y)
+#     s, x = sign(x)
+#     x, i = split_expr(x, :^)
+#     i, j = split_expr(i, :*)
+#     y = mul(y, isone(i) ? j : mul(i, j))
+#     iszero(y) && return 1
+
+#     if isdiv(x) && isnegative(y)
+#         x = div(reverse(split_expr(x, :/))...)
+#         y = neg(y)
+#     end
+#     x = sign(s, x)
+#     isone(y) ? x : :(($x) ^ $y)
+# end
 
 # inv
 

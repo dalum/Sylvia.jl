@@ -134,6 +134,9 @@ Base.oneunit(x::Symbolic{T}) where T = Symbolic(oneunit(x.value))
 Base.zero(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(0)
 Base.one(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(1)
 Base.oneunit(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(1)
+Base.zero(x::Type{<:Symbolic}) = Symbolic(0)
+Base.one(x::Type{<:Symbolic}) = Symbolic(1)
+Base.oneunit(x::Type{<:Symbolic}) = Symbolic(1)
 
 const ZERO = S"0"
 const ONE = S"1"
