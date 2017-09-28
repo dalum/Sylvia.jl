@@ -1,4 +1,4 @@
-#__precompile__(true)
+__precompile__(true)
 
 module Sylvia
 
@@ -32,6 +32,8 @@ Symbolic(value::Expr, properties::Properties) = Symbolic(DEFAULT_EXPR_TYPE, valu
     symbol([C,] x; namespace=GLOBAL_NAMESPACE, safe=true)
 """
 symbol(x) = Symbolic(x)
+symbol(x::Symbolic) = x
+symbol(expr::Expr) = replacesymbols(Val{expr.head}(), expr)
 
 function symbol(::Type{C}, x::Symbol, properties::Properties; namespace::Namespace = GLOBAL_NAMESPACE, safe::Bool = true) where C
     if safe && x in keys(namespace)
@@ -106,16 +108,6 @@ Base.convert(::Type{T1}, x::Symbolic{T2}) where {T1,T2} = convert(T1, x.value)
 Base.convert(::Type{AbstractArray{Symbolic{T1},N}}, A::AbstractArray{T2,N}) where {T1<:Number,T2,N} = Base.convert(AbstractArray{Symbolic,N}, A)
 
 Base.promote_rule(::Type{Symbolic}, ::Type{<:Any}) = Symbolic
-Base.promote_rule(::Type{Symbolic{T}}, ::Type{<:Any}) where T = Symbolic
-
-### Array stuff
-# Base.similar(a::Vector{<:Symbolic})                                    = Vector{Symbolic}(size(a,1))
-# Base.similar(a::Matrix{<:Symbolic})                                    = Matrix{Symbolic}(size(a,1), size(a,2))
-# Base.similar(a::Vector{T}, S::Type{Symbolic{T}}) where {T}             = Vector{Symbolic}(size(a,1))
-# Base.similar(a::Matrix{T}, S::Type{Symbolic{T}}) where {T}             = Matrix{Symbolic}(size(a,1), size(a,2))
-# Base.similar(a::Array{T}, m::Int) where {T<:Symbolic}                  = Array{Symbolic,1}(m)
-# Base.similar(a::Array, ::Type{Symbolic{T}}, dims::Dims{N}) where {T,N} = Array{Symbolic,N}(dims)
-# Base.similar(a::Array{T}, dims::Dims{N}) where {T<:Symbolic,N}         = Array{Symbolic,N}(dims)
 
 show_prefix = ""
 show_suffix = ""
@@ -128,108 +120,144 @@ end
 
 Base.show(io::IO, x::Symbolic) = print(io, "$show_prefix$(expressify(x))$show_suffix")
 
-Base.zero(x::Symbolic{T}) where T = Symbolic(zero(x.value))
-Base.one(x::Symbolic{T}) where T = Symbolic(one(x.value))
-Base.oneunit(x::Symbolic{T}) where T = Symbolic(oneunit(x.value))
-Base.zero(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(0)
-Base.one(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(1)
-Base.oneunit(x::Symbolic{T}) where T<:Union{Symbol,Expr} = Symbolic(1)
-Base.zero(x::Type{<:Symbolic}) = Symbolic(0)
-Base.one(x::Type{<:Symbolic}) = Symbolic(1)
-Base.oneunit(x::Type{<:Symbolic}) = Symbolic(1)
-
-const ZERO = S"0"
-const ONE = S"1"
-
-Base.zero(::Type{Symbolic{T}}) where T = Symbolic(zero(T))
-Base.one(::Type{Symbolic{T}}) where T = Symbolic(one(T))
-Base.oneunit(::Type{Symbolic{T}}) where T = Symbolic(one(T))
-Base.zero(::Type{Symbolic}) = ZERO
-Base.one(::Type{Symbolic}) = ONE
-Base.oneunit(::Type{Symbolic}) = ONE
-Base.zero(::Type{Symbolic{T}}) where T<:Union{Symbol,Expr} = ZERO
-Base.one(::Type{Symbolic{T}}) where T<:Union{Symbol,Expr} = ONE
-Base.oneunit(::Type{Symbolic{T}}) where T<:Union{Symbol,Expr} = ONE
-
-Base.iszero(x::Symbolic) = iszero(x.value)
-Base.iszero(::SymbolOrExpr) = false
-Base.isone(x::Symbolic) = isone(x.value)
-Base.isone(::SymbolOrExpr) = false
-
-identity_element(::typeof(+), ::Symbolic{T,<:Number}, ::Symbol) where {T} = ZERO
-identity_element(::typeof(*), ::Symbolic{T,<:Number}, ::Symbol) where {T} = ONE
-identity_element(::typeof(^), ::Symbolic{T,<:Number}, side::Symbol) where {T} = side == :right ? ONE : error("^ only has a right identity element")
-
-iscall(::Symbolic) = false
-iscall(x::Symbolic{Expr}) = value(x).head == :call
-iscall(op::Symbol, x::Symbolic{Expr}) = iscall(x) && value(x).args[1] == op
-
 include("expression.jl")
 
 #="""
     iscommutative(f, x, y)
 """=#
 iscommutative(::Function, ::Type, ::Type) = false
-iscommutative(f::Function, ::Class{C1}, ::Class{C2}) where {C1, C2} = iscommutative(f, C1, C2)
+iscommutative(f::Function, x1::Class{C1}, x2::Class{C2}) where {C1, C2} = x1 == x2 || iscommutative(f, C1, C2)
+iscommutative(f::Function, ::Type{<:Class{C1}}, ::Type{<:Class{C2}}) where {C1, C2} = iscommutative(f, C1, C2)
 
 macro commutes(f, T, S)
     :(iscommutative(::typeof($f), ::Type{<:$T}, ::Type{<:$S}) = true)
 end
 @commutes(+, Number, Number)
+@commutes(+, Number, AbstractArray)
+@commutes(+, AbstractArray, Number)
 @commutes(+, AbstractArray, AbstractArray)
 
 @commutes(*, Number, Number)
 @commutes(*, Number, AbstractArray)
 @commutes(*, AbstractArray, Number)
 
-# reorderterms(f::Function, xs::AbstractVector{<:Symbolic}) = order!(f, copy(xs))
-# reorderterms!(f::Function, xs::AbstractVector{<:Symbolic}) = Base.sort!(xs, lt = (x,y) -> iscommutative(f, x, y) && isless(string(x), string(y)))
+include("derive.jl")
+include("math.jl")
 
-#="""
-    derive_class(f, xs...)
-"""=#
-derive_class(f::Function, xs::Type...) = Core.Inference.return_type(f, Tuple{xs...})
-
-derive_class(f::Function, x1::Class{C}) where {C} = derive_class(f, C)
-derive_class(f::Function, x1::Class{C1}, x2::Class{C2}) where {C1, C2} = derive_class(f, C1, C2)
-function derive_class(f::Function, x1::Class{C1}, x2::Class{C2}, xs::Symbolic...) where {C1, C2}
-    assoc = Base.operator_associativity(Symbol(f))
-    if assoc === :left || Symbol(f) in (:+, :*)
-        fold = foldl
-    elseif assoc === :right
-        fold = foldr
+macro _call(verbose, name, symbols, expr)
+    if eval(verbose)
+        return esc(quote
+                   print("$($name)(", join($symbols, ", "), ")")
+                   retval = $expr
+                   println(" => $retval")
+                   retval
+                   end)
     else
-        return Any
+        return esc(expr)
     end
-    return fold((x, y) -> derive_class(f, x, y), map(x -> typeof(x).parameters[2], [x1, x2, xs...]))
 end
 
-derive_class(::Union{typeof(-), typeof(+)}, ::Type{T}) where {T<:Union{Number,AbstractArray}} = T
+function define_operators(verbose::Bool)
 
-derive_class(f::Function, ::Type{T}, ::Type{S}) where {T<:Number,S<:Number} = typejoin(T, S, typeof(f(one(T), one(S))))
+    ### Undressed return values
+    for op in (:(Base.:(==)), :(Base.:<))
+        @eval $op(x::Symbolic, y) = @_call $verbose $op (x, y) $op(x, Symbolic(y))
+        @eval $op(x, y::Symbolic) = @_call $verbose $op (x, y) $op(Symbolic(x), y)
+    end
 
-derive_class(f::Union{typeof(*), typeof(/)}, ::Type{A}, ::Type{S}) where {T<:Number, N, A<:AbstractArray{T,N}, S<:Number} = A.name.wrapper{derive_class(f, T, S), N}
-derive_class(f::Union{typeof(*), typeof(\)}, ::Type{S}, ::Type{A}) where {T<:Number, N, A<:AbstractArray{T,N}, S<:Number} = A.name.wrapper{derive_class(f, T, S), N}
+    ### Dressed return values
+    for op in (:(Base.:+), :(Base.:-), :(Base.:*), :(Base.:/), :(Base.:\), :(Base.://), :(Base.:^))
+        @eval $op(x::Symbolic, y)::Symbolic = @_call $verbose $op (x, y) $op(x, Symbolic(y))
+        @eval $op(x, y::Symbolic)::Symbolic = @_call $verbose $op (x, y) $op(Symbolic(x), y)
+    end
 
-derive_properties(f, xs::Symbolic...) = Properties()
+    # Needs special treatment
+    Base.:^(x::Symbolic, y::Integer)::Symbolic = x ^ Symbolic(y)
 
-derived(f::Function, xs::Symbolic...) = Symbolic(derive_class(f, xs...), Expr(:call, Symbol(f), xs...), derive_properties(f, xs...))
+end
 
-include("math.jl")
-include("operators.jl")
 define_operators(false)
 
-function debug(debug::Bool = true)
-    if debug
+"""
+    debug(value)
+"""
+function debug(value::Bool = true)
+    if value
         setshow("S\"", "\"")
         define_operators(true)
     else
         setshow("", "")
         define_operators(false)
     end
-    print("Debug: $debug")
+    print("Debug: $value")
 end
 
-include("def.jl")
+#="""
+    expressify(a)
+"""=#
+expressify(a) = a # Catch all
+expressify(a::Expr) = Expr(a.head, expressify.(a.args)...)
+expressify(a::Symbolic) = expressify(value(a))
+expressify(V::AbstractVector) = Expr(:vect, value.(V)...)
+expressify(A::AbstractMatrix) = Expr(:vcat, mapslices(x -> Expr(:row, value.(x)...), A, 2)...)
+
+# def
+
+_def(mod::Module, expr::Symbol) = throw(ArgumentError("invalid function definition"))
+function _def(mod::Module, expr::Expr)
+    if expr.head ≠ :(=)
+        throw(ArgumentError("invalid function definition"))
+    end
+
+    body = expressify(eval(mod, expr.args[2]))
+
+    name = expr.args[1]
+    if name isa Symbol
+        symbols = sort(collect(getsymbols(body)))
+    elseif iscall(name)
+        name, symbols = name.args[1], name.args[2:end]
+    else
+        throw(ArgumentError("name must be either a symbol or call"))
+    end
+    return esc(Expr(:(=), Expr(:call, name, symbols...), body))
+end
+
+if VERSION >= v"0.7.0-DEV"
+    macro def(expr) _def(__module__, expr) end
+else
+    macro def(expr) _def(Main, expr) end
+end
+macro def(mod, expr) _def(mod, expr) end
+
+# λ
+
+_parse_args(args::Symbol) = (args,)
+function _parse_args(args::Expr)
+    if args.head ≠ :tuple
+        throw(ArgumentError("invalid argument list"))
+    end
+    return args.args
+end
+
+function _lambda_implicit(mod::Module, expr)
+    body = expressify(eval(mod, expr))
+    symbols = sort(collect(getsymbols(body)))
+    esc(Expr(:(->), Expr(:tuple, symbols...), body))
+end
+
+_lambda(mod::Module, x::Symbol) = _lambda_implicit(mod, x)
+function _lambda(mod::Module, expr::Expr)
+    expr.head ≠ :(->) && return _lambda_implicit(mod, expr)
+    symbols = _parse_args(expr.args[1])
+    body = expressify(eval(mod, expr.args[2]))
+    esc(Expr(:(->), Expr(:tuple, symbols...), body))
+end
+
+if VERSION >= v"0.7.0-DEV"
+    macro λ(expr) _lambda(__module__, expr) end
+else
+    macro λ(expr) _lambda(Main, expr) end
+end
+macro λ(mod, expr) _lambda(mod, expr) end
 
 end # module

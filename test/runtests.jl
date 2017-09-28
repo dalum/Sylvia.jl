@@ -1,13 +1,14 @@
-using Sylvia
 using Base.Test
+using Sylvia
+using Sylvia: Symbolic, symbol
 
 @symbols a b c d
 
 # Conversion
-@test Symbolic(a) == a == :a
+@test symbol(a) == a == :a
 @test [a] == Symbolic[:a]
 @test convert(Int, Symbolic(1)) === Int(1)
-@test convert(Symbolic{AbstractFloat}, Symbolic(1)) === Symbolic(1.0)
+@test convert(Symbolic{AbstractFloat,typeof(1.0)}, Symbolic(1)) === Symbolic(1.0)
 @test iszero(Symbolic(0)) & iszero(Symbolic(0.0))
 @test Sylvia.isone(Symbolic(1)) & Sylvia.isone(Symbolic(1.0))
 
