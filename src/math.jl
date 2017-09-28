@@ -187,7 +187,7 @@ Base.:-(x::SymbolOrExpr, y::SymbolOrExpr) = subtract(x, y)
 Base.:-(x::SymbolOrExpr, y::Symbolic) = subtract(x, y)
 Base.:-(x::Symbolic, y::SymbolOrExpr) = subtract(x, y)
 
-subtract(x, y) = x + -y
+subtract(x, y)::Symbolic = x + -y
 
 # mul
 
@@ -226,7 +226,7 @@ Base.:^(x::SymbolOrExpr, y::SymbolOrExpr) = pow(x, y)
 Base.:^(x::SymbolOrExpr, y::Symbolic) = pow(x, y)
 Base.:^(x::Symbolic, y::SymbolOrExpr) = pow(x, y)
 
-function pow(x, y)
+function pow(x, y)::Symbolic
     x, i = factorize(^, x)[1:2]
     y = i * y
     if iszero(y)
@@ -245,8 +245,16 @@ Base.inv(x::Symbolic{<:Number}) = Symbolic(inv(value(x)))
 function Base.inv(A::StridedMatrix{<:Symbolic})
     Base.LinAlg.checksquare(A)
     AA = convert(AbstractArray{Symbolic}, A)
-    Ai = Base.LinAlg.inv!(lufact(AA))
-    Ai = convert(typeof(parent(Ai)), Ai)
+    if istriu(AA)
+        AA = UpperTriangular(AA)
+        Ai = A_ldiv_B!(AA, eye(Symbolic, size(AA, 1)))
+    elseif istril(AA)
+        AA = LowerTriangular(AA)
+        Ai = A_ldiv_B!(AA, eye(Symbolic, size(AA, 1)))
+    else
+        Ai = Base.LinAlg.inv!(lufact(AA))
+    end
+    Ai = convert(AbstractArray{typejoin(typeof.(Ai)...)}, Ai)
     return Ai
 end
 

@@ -1,3 +1,7 @@
+Base.promote_op(f, ::Type{<:Symbolic}, ::Type{<:Symbolic}) = Symbolic
+Base.promote_op(f, ::Type{<:Symbolic{T1,C1}}, ::Type{<:Symbolic{T2,C2}}) where {T1,T2,C1,C2} = Symbolic{<:Any,derive_class(f, C1, C2)}
+Base.to_power_type(x::AbstractArray{<:Symbolic}) = x
+
 #="""
     derive_class(f, xs...)
 """=#

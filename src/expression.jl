@@ -47,6 +47,9 @@ Base.isone(::SymbolOrExpr) = false
 Base.isinf(x::Symbolic) = isinf(value(x))
 Base.isinf(::SymbolOrExpr) = false
 
+Base.complex(x::Symbolic{<:Number}) = Symbolic(complex(value(x)))
+Base.complex(x::Symbolic{T,C}) where {T<:Union{Symbol,Expr}, C<:Number} = Symbolic{T,C}(x)
+
 identity_element(::typeof(+), ::Symbolic{T,<:Union{Number,AbstractArray{Number}}}, ::Symbol) where {T} = ZERO
 identity_element(::typeof(*), ::Symbolic{T,<:Union{Number,AbstractArray{Number}}}, ::Symbol) where {T} = ONE
 identity_element(::typeof(^), ::Symbolic{T,<:Union{Number,AbstractArray{Number}}}, side::Symbol) where {T} = side == :right ? ONE : error("^ only has a right identity element")
