@@ -3,7 +3,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/eveydee/Sylvia.jl/badge.svg?branch=master)](https://coveralls.io/github/eveydee/Sylvia.jl?branch=master)
 [![codecov.io](http://codecov.io/github/eveydee/Sylvia.jl/coverage.svg?branch=master)](http://codecov.io/github/eveydee/Sylvia.jl?branch=master)
 
-A simple symbolic library with a pretty name.
+A simple symbolic library with a pretty name.  The latest Sylvia master depends on features available only in Julia master.  Use the release tag v0.1.0 for a version of this package that is compatible with Julia 0.6.
 
 ## Usage
 
