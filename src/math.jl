@@ -24,7 +24,7 @@ function isnegative(x::Symbolic{Expr})
     if isnegation(x)
         return true
     end
-    if iscall(:*, x) && isnegative(value(x).args[2])
+    if ismul(x) && isnegative(value(x).args[2])
         return true
     end
     return false
@@ -59,9 +59,10 @@ function Base.:-(x::Symbolic{Expr})
     F = factorize(+, x)
     if length(F) > 1
         return reduce(+, (-).(F.data))
-    end
-    if isnegation(x)
+    elseif isnegation(x)
         return value(x).args[2]
+    elseif ismul(x) && isnegative(value(x).args[2])
+        return derived(*, -value(x).args[2], value(x).args[3:end]...)
     elseif issub(x)
         return value(x).args[3] - value(x).args[2]
     end
@@ -177,7 +178,22 @@ function add(xs::Symbolic...)::Symbolic
     end
 
     commutesort!(+, xs, by=isnegative)
-    addexpr = derived(+, xs...)
+    x, i = next(xs, start(xs))
+    temp = Symbolic[]
+    expr = x
+    while !done(xs, i)
+        x, i = next(xs, i)
+        if !isnegative(x)
+            push!(temp, x)
+        else
+            if length(temp) > 0
+                expr = derived(+, expr, temp...)
+            end
+            expr = derived(-, expr, -x)
+            temp = []
+        end
+    end
+    return expr
 end
 
 # sub
