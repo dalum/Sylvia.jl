@@ -62,7 +62,7 @@ getsymbols(x::Expr) = getsymbols(Val{x.head}, x.args)
 getsymbols(::Any, args) = mapreduce(getsymbols, union, args)
 getsymbols(::Type{Val{:call}}, args) = mapreduce(getsymbols, union, args[2:end])
 
-replacesymbols(::Val{<:Symbol}, expr::Expr) = replacesymbols(expr, 1, endof(expr.args))
+replacesymbols(::Val, expr::Expr) = replacesymbols(expr, 1, endof(expr.args))
 replacesymbols(::Val{:call}, expr::Expr) = replacesymbols(expr, 2, endof(expr.args))
 replacesymbols(expr::Expr, start::Integer, stop::Integer) = replacesymbols!(copy(expr), start, stop)
 
@@ -84,7 +84,8 @@ fingerprint(x) = ""
 fingerprint(x::Symbolic{Symbol}) = string(x)
 fingerprint(x::Symbolic{Expr}) = mapreduce(fingerprint, *, value(x).args)
 
-iscall(::Symbolic) = false
+iscall(::Any) = false
+iscall(x::Expr) = x.head == :call
 iscall(::Symbol, ::Symbolic) = false
 iscall(x::Symbolic{Expr}) = value(x).head == :call
 iscall(op::Symbol, x::Symbolic{Expr}) = iscall(x) && value(x).args[1] == op
@@ -182,15 +183,21 @@ function _factorize(::typeof(*), x::Symbolic{Expr})
     end
     return mapreduce(factorize_sign, vcat, fact)
 end
-factorize_sign(x::Symbolic) = isnegative(x) ? [sign(x), -x] : [x]
+factorize_sign(x::Symbolic) = [x]
+factorize_sign(x::Symbolic{Expr}) = isnegative(x) ? [sign(x), -x] : [x]
 
 
 Base.reduce(F::Factorization{<:Function, <:Symbolic}) = derived(F.op, F.data...)
 
 function Base.reduce(F::Factorization{<:Union{typeof(*), typeof(/)}, <:Symbolic})
-    length(F.data) == 0 && return ONE
-    length(F.data) == 1 && return F.data[1]
-    return derived(F.op, partialderived(F.op, F.data...)...)
+    data = F.data
+    length(data) == 0 && return ONE
+    length(data) == 1 && return data[1]
+    if data[1] isa Symbolic{<:Number} && isnegative(data[1]) && isone(-data[1])
+        data[2] = -data[2]
+        data = data[2:end]
+    end
+    return derived(F.op, partialderived(F.op, data...)...)
 end
 function Base.reduce(F::Factorization{<:Union{typeof(+), typeof(-)}, <:Symbolic})
     length(F.data) == 0 && return ZERO

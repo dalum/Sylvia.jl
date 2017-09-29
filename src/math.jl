@@ -30,7 +30,7 @@ function isnegative(x::Symbolic{Expr})
     return false
 end
 
-isnegation(x::Symbolic{Expr}) = iscall(:-, x) && length(value(x).args) == 2
+isnegation(x) = iscall(:-, x) && length(value(x).args) == 2
 isadd(x) = iscall(:+, x) && length(value(x).args) >= 3
 issub(x) = iscall(:-, x) && length(value(x).args) == 3
 ismul(x) = iscall(:*, x)
@@ -38,7 +38,7 @@ isdiv(x) = iscall(:/, x)
 isidiv(x) = iscall(:\, x)
 isrdiv(x) = iscall(://, x)
 ispow(x) = iscall(:^, x)
-isinv(x) = iscall(x) && ispow(x) && isnegative(value(x).args[3])
+isinv(x) = ispow(x) && isnegative(value(x).args[3]) || isnegation(x) && isinv(value(x).args[2])
 isconj(x) = iscall(:conj, x)
 istranspose(x) = x isa Symbolic{Expr} && value(x).head == Symbol(".'")
 isadjoint(x) = x isa Symbolic{Expr} && value(x).head == Symbol("'")
@@ -84,11 +84,7 @@ function add(xs::Symbolic...)::Symbolic
     if length(xs) == 0
         return ZERO
     end
-    xs = partialderived(+, xs...)
-    if length(xs) == 1
-        return xs[1]
-    end
-    return derived(+, xs...)
+    return reduce(Factorization(+, xs))
 end
 
 # sub
@@ -117,11 +113,7 @@ function multiply(xs::Symbolic...)::Symbolic
     if length(xs) == 0
         return ONE
     end
-    xs = partialderived(*, xs...)
-    if length(xs) == 1
-        return xs[1]
-    end
-    return derived(*, xs...)
+    return reduce(Factorization(*, xs))
 end
 
 # div
@@ -142,16 +134,20 @@ function pow(x, y)::Symbolic
     if iszero(y)
         return one(x)
     end
-    if isone(x)
+    if isone(x) || isone(y)
         return x
     end
-    isone(y) ? x : derived(^, x, y)
+    if isnegative(x)
+        return -(-x)^y
+    end
+    return derived(^, x, y)
 end
 
 # inv
 
 Base.inv(x::Symbolic) = x^-1
 Base.inv(x::Symbolic{<:Number}) = Symbolic(inv(value(x)))
+
 function Base.inv(A::StridedMatrix{<:Symbolic})
     Base.LinAlg.checksquare(A)
     AA = convert(AbstractArray{Symbolic}, A)
@@ -181,7 +177,6 @@ function Base.lufact(A::AbstractMatrix{<:Symbolic})
     end
 end
 
-
 # conj
 
 Base.conj(x::Symbolic{Symbol}) = derived(conj, x)
@@ -210,4 +205,15 @@ function Base.adjoint(x::Symbolic{Expr})
     istranspose(x) && return conj(value(x).args[1])
     isadjoint(x) && return value(x).args[1]
     derived(adjoint, x)
+end
+
+function Base.transpose(A::AbstractMatrix{<:Symbolic})
+    ind1, ind2 = indices(A)
+    B = similar(A, Symbolic, (ind2, ind1))
+    transpose!(B, A)
+end
+function Base.adjoint(A::AbstractMatrix{<:Symbolic})
+    ind1, ind2 = indices(A)
+    B = similar(A, Symbolic, (ind2, ind1))
+    adjoint!(B, A)
 end

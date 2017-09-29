@@ -16,7 +16,7 @@ const Namespace = Dict{Symbol, Symbolic{Symbol}}
 const GLOBAL_NAMESPACE = Namespace()
 
 DEFAULT_SYMBOL_TYPE = Number
-DEFAULT_EXPR_TYPE = Number
+DEFAULT_EXPR_TYPE = Any
 
 """
     Symbolic([C,] value[, properties])

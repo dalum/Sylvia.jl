@@ -104,10 +104,10 @@ function collapse(::typeof(*), input::AbstractVector{<:Symbolic})
         return output
     end
 
-    # Remove leading sign
-    if output[1] isa Symbolic{<:Number} && isnegative(output[1]) && isone(-output[1])
-        output[2] = -output[2]
-        return output[2:end]
-    end
+    # # Remove leading sign
+    # if output[1] isa Symbolic{<:Number} && isnegative(output[1]) && isone(-output[1])
+    #     output[2] = -output[2]
+    #     return output[2:end]
+    # end
     return output
 end
