@@ -69,96 +69,6 @@ function Base.:-(x::Symbolic{Expr})
     derived(-, x)
 end
 
-# collapse
-
-function expand(x::Symbolic)
-    F = factorize(+, x)
-    for i in length(F)
-        FF = factorize(*, F[i])
-        prod = collect(product(factorize.(+, FF.data)...))
-        F.data[i] = mapreduce(x->reduce((xx,yy)->derived(*, xx, yy), x), (x,y)->derived(+, x, y), prod)
-    end
-    return reduce(F)
-end
-
-function collapse(::typeof(+), input::AbstractVector{<:Symbolic})
-    output = Symbolic[]
-    a = factorize(*, input[1])
-
-    if a[1] isa Symbolic{<:Number}
-        i, a = a[1], reduce(a[2:end])
-    else
-        i, a = a[0], reduce(a)
-    end
-
-    for b in input[2:end]
-        if all(x->x isa Symbolic{<:Number}, (i, a, b))
-            i = i * a + b
-            a = ONE
-            continue
-        end
-
-        b = factorize(*, b)
-        if b[1] isa Symbolic{<:Number}
-            j, b = b[1], reduce(b[2:end])
-        else
-            j, b = b[0], reduce(b)
-        end
-
-        if a == b
-            i += j
-        else
-            !iszero(a) && !iszero(i) && push!(output, isone(i) ? a : i * a)
-            a, i = b, j
-        end
-    end
-
-    # Push final element
-    !iszero(a) && !iszero(i) && push!(output, isone(i) ? a : i * a)
-
-    if length(output) == 0
-        return [ZERO]
-    end
-    if length(output) == 1
-        return output
-    end
-    return output
-end
-
-function collapse(::typeof(*), input::AbstractVector{<:Symbolic})
-    output = Symbolic[]
-    a, p = factorize(^, input[1])[1:2]
-
-    for b in input[2:end]
-        if all(x->x isa Symbolic{<:Number}, (a, p, b))
-            a = a^p * b
-            continue
-        end
-
-        b, q = factorize(^, b)[1:2]
-        if b == a
-            p += q
-        else
-            !isone(a) && !iszero(p) && push!(output, isone(p) ? a : a^p)
-            a, p = b, q
-        end
-    end
-    # Push final element
-    if (!isone(a) && !iszero(p)) || length(output) == 0
-        push!(output, iszero(p) ? ONE : isone(p) ? a : a^p)
-    end
-    if length(output) == 1
-        return output
-    end
-
-    # Remove leading sign
-    if output[1] isa Symbolic{<:Number} && isnegative(output[1]) && isone(-output[1])
-        output[2] = -output[2]
-        return output[2:end]
-    end
-    return output
-end
-
 # add
 
 Base.:+(x::Symbolic, y::Symbolic) = derived(+, x, y)
@@ -169,31 +79,16 @@ Base.:+(x::Symbolic, y::SymbolOrExpr) = add(x, y)
 function add(xs::Symbolic...)::Symbolic
     xs = collect(Symbolic, flatten(factorize.(+, xs)))
     xs = collapse(+, commutesort(+, xs))
-    filter!(x->!iszero(x), xs)
-
-    if length(xs) == 0
-        return ZERO
-    elseif length(xs) == 1
-        return xs[1]
-    end
 
     commutesort!(+, xs, by=isnegative)
-    x, i = next(xs, start(xs))
-    temp = Symbolic[]
-    expr = x
-    while !done(xs, i)
-        x, i = next(xs, i)
-        if !isnegative(x)
-            push!(temp, x)
-        else
-            if length(temp) > 0
-                expr = derived(+, expr, temp...)
-            end
-            expr = derived(-, expr, -x)
-            temp = []
-        end
+    if length(xs) == 0
+        return ZERO
     end
-    return expr
+    xs = partialderived(+, xs...)
+    if length(xs) == 1
+        return xs[1]
+    end
+    return derived(+, xs...)
 end
 
 # sub
@@ -218,16 +113,15 @@ function multiply(xs::Symbolic...)::Symbolic
         return ZERO
     end
     xs = collapse(*, commutesort(*, xs))
-    filter!(x->!isone(x), xs)
-
+    commutesort!(*, xs, by=isinv)
     if length(xs) == 0
         return ONE
-    elseif length(xs) == 1
+    end
+    xs = partialderived(*, xs...)
+    if length(xs) == 1
         return xs[1]
     end
-
-    xs = commutesort(*, xs, lt=isless, by=isinv)
-    mulexpr = derived(*, xs...)
+    return derived(*, xs...)
 end
 
 # div

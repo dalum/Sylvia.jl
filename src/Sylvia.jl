@@ -143,6 +143,7 @@ end
 
 include("derive.jl")
 include("math.jl")
+include("simplify.jl")
 
 macro _call(verbose, name, symbols, expr)
     if eval(verbose)

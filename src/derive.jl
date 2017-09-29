@@ -66,8 +66,59 @@ derive_class(f::BasicFunctions, ::Type{A}) where {T<:Number, A<:AbstractMatrix{T
 
 derive_properties(f, xs::Symbolic...) = Properties()
 
+#="""
+    derived(f, xs...)
+"""=#
 derived(f::Function, xs::Symbolic...) = Symbolic(derive_class(f, xs...), Expr(:call, Symbol(f), xs...), derive_properties(f, xs...))
+derived(::Union{typeof(+), typeof(*)}, x::Symbolic) = x
 
 # special
 derived(f::typeof(transpose), xs::Symbolic...) = Symbolic(derive_class(f, xs...), Expr(Symbol(".'"), xs...), derive_properties(f, xs...))
 derived(f::typeof(adjoint), xs::Symbolic...) = Symbolic(derive_class(f, xs...), Expr(Symbol("'"), xs...), derive_properties(f, xs...))
+
+#="""
+    partialderived(f, xs...)
+"""=#
+function partialderived(::typeof(+), input::Symbolic...)
+    output = Symbolic[]
+    i = start(input)
+    while !done(input, i)
+        temp, i = nextwhile(x->!isnegative(x), input[i:end], i-1)
+        if length(temp) >= 1
+            expr = derived(+, temp...)
+        end
+
+        temp, i = nextwhile(isnegative, input[i:end], i-1)
+        if length(temp) >= 1
+            temp = commutesort(+, reverse((-).(temp)))
+            if @isdefined(expr)
+                expr = derived(-, expr, derived(+, temp...))
+            else
+                expr = derived(-, derived(+, temp...))
+            end
+        end
+        push!(output, expr)
+    end
+    return output
+end
+
+function partialderived(::typeof(*), input::Symbolic...)
+    output = Symbolic[]
+    i = start(input)
+    while !done(input, i)
+        temp, i = nextwhile(x->!isinv(x), input[i:end], i-1)
+        if length(temp) >= 1
+            expr = derived(*, temp...)
+        else
+            expr = ONE
+        end
+
+        temp, i = nextwhile(isinv, input[i:end], i-1)
+        if length(temp) >= 1
+            temp = commutesort(*, reverse((inv).(temp)))
+            expr = derived(/, expr, derived(*, temp...))
+        end
+        push!(output, expr)
+    end
+    return output
+end

@@ -176,7 +176,7 @@ function _factorize(::typeof(*), x::Symbolic{Expr})
     if length(x) == 1
         fact =  _factorize(:*, x[1])
     elseif length(x) == 2
-        fact = vcat(factorize(:*, x[1]), inv.(reverse(_factorize(:*, x[2]))))
+        fact = vcat(_factorize(:*, x[1]), inv.(reverse(_factorize(:*, x[2]))))
     else
         throw(ArgumentError("cannot factorize using (*) on expression: $x"))
     end
@@ -190,10 +190,10 @@ Base.reduce(F::Factorization{<:Function, <:Symbolic}) = derived(F.op, F.data...)
 function Base.reduce(F::Factorization{<:Union{typeof(*), typeof(/)}, <:Symbolic})
     length(F.data) == 0 && return ONE
     length(F.data) == 1 && return F.data[1]
-    return derived(F.op, F.data...)
+    return derived(F.op, partialderived(F.op, F.data...)...)
 end
 function Base.reduce(F::Factorization{<:Union{typeof(+), typeof(-)}, <:Symbolic})
     length(F.data) == 0 && return ZERO
     length(F.data) == 1 && return F.data[1]
-    return derived(F.op, F.data...)
+    return derived(F.op, partialderived(F.op, F.data...)...)
 end
