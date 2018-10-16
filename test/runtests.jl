@@ -1,6 +1,6 @@
-using Base.Test
+using Test
 using Sylvia
-using Sylvia: Symbolic, symbol
+using Sylvia: Symbolic
 
 @symbols a b c d
 
@@ -8,7 +8,7 @@ using Sylvia: Symbolic, symbol
 @test symbol(a) == a == :a
 @test [a] == Symbolic[:a]
 @test convert(Int, Symbolic(1)) === Int(1)
-@test convert(Symbolic{AbstractFloat}, Symbolic(1)) === Symbolic(1.0)
+@test convert(Symbolic{AbstractFloat,typeof(1.0)}, Symbolic(1)) === Symbolic(1.0)
 @test iszero(Symbolic(0)) & iszero(Symbolic(0.0))
 @test isone(Symbolic(1)) & isone(Symbolic(1.0))
 
