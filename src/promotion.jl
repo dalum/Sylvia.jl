@@ -9,8 +9,8 @@ Base.convert(::Type{Sym{T}}, x::Sym) where {T} = Sym{T}(x.head, x.args...)
 
 # Base.convert(::Type{AbstractArray{Sym{T,TAG}}}, A::AbstractArray) where {T,TAG} = Base.convert(AbstractArray{Sym}, A)
 
-Base.promote_rule(::Type{Sym{T}}, ::Type{Any}) where {T} = Sym
-Base.promote_rule(::Type{Sym{T}}, ::Type{S}) where {T,S} = Sym{promote_type(T, S)}
+Base.promote_rule(::Type{Sym{T}}, ::Type{S}) where {T,S} = Sym
+Base.promote_rule(::Type{Sym{T}}, ::Type{T}) where {T} = Sym{T}
 Base.promote_rule(::Type{Sym{T}}, ::Type{Sym{S}}) where {T,S} = Sym{promote_type(T, S)}
 
 Base.promote_op(f, a::Type{<:Sym{T}}) where {T} = Sym{promote_tag(:call, f, T)}

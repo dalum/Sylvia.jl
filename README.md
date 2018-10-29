@@ -31,4 +31,10 @@ julia> @assume c in d;
 julia> c in d
 true
 
+julia> x = a + b + a + sin(c) * sin(c) + cos(a + d) * cos(d + a)
+a + b + a + sin(c) * sin(c) + cos(a + d) * cos(d + a)
+
+julia> gather(x)
+a * 2 + b + cos(a + d) ^ 2 + sin(c) ^ 2
+
 ```

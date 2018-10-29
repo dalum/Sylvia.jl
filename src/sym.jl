@@ -12,10 +12,8 @@ end
 
 Sym(x) = Sym{tagof(x)}(x)
 Sym(x::Expr, m::Module = Base) = Sym{tagof(x)}(x, m)
-
 Sym{TAG}(x) where {TAG} = Sym{TAG}(:object, x)
-Sym{TAG}(x::T) where {TAG,T<:Number} = Sym{T}(:number, x)
-Sym{TAG}(s::Symbol) where {TAG} = Sym{TAG}(:symbol, s)
+Sym{TAG}(x::Symbol) where {TAG} = Sym{TAG}(:object, x)
 Sym{TAG}(e::Expr, m::Module = Base) where {TAG} = Sym{TAG}(Val(e.head), e, m)
 
 function Sym{TAG}(::Val{head}, e::Expr, m::Module) where {TAG,head}
@@ -79,6 +77,13 @@ macro symbols(TAG::Symbol, xs::Symbol...)
     push!(ret.args, tup)
     return ret
 end
+
+##################################################
+# Iteration
+##################################################
+
+Base.iterate(x::Sym) = (x, nothing)
+Base.iterate(x::Sym, ::Any) = nothing
 
 ##################################################
 # Utilities

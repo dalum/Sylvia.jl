@@ -1,9 +1,10 @@
 module Sylvia
 
 import DataStructures: OrderedDict
+import LinearAlgebra
 
 export @S_str, @assume, @expr, @λ, @symbols,
-    tagof
+    commuteswith, gather, tagof
 
 include("sym.jl")
 include("sig.jl")
@@ -21,26 +22,33 @@ include("simplify.jl")
 ##################################################
 
 # One-arg operators
-for op in (:abs, :abs2, :adjoint, :complex, :conj, :exp, :imag, :inv,
+for op in (:+, :-, :!,
+           :abs, :abs2, :adjoint, :complex, :conj, :exp, :imag, :inv,
            :log, :one, :real, :sqrt, :transpose, :zero,
-           :+, :-, :!,
-           :cos, :sin, :tan, :sec, :csc, :cot, :cosh, :sinh, :tanh, :sech, :csch, :coth,
-           :acos, :asin, :atan, :asec, :acsc, :acot, :acosh, :asinh, :atanh, :asech, :acsch, :acoth)
+           :cos, :sin, :tan, :sec, :csc, :cot,
+           :acos, :asin, :atan, :asec, :acsc, :acot,
+           :cosh, :sinh, :tanh, :sech, :csch, :coth,
+           :acosh, :asinh, :atanh, :asech, :acsch, :acoth)
     @eval @register $(:(Base.$op)) 1
 end
 
+for op in (:norm,)
+    @eval @register $(:(LinearAlgebra.$op)) 1
+end
+
 # One-arg queries
-for op in (:iseven, :isinf, :isodd, :isone, :iszero)
+for op in (:iseven, :isinf, :isnan, :isodd, :isone, :iszero)
     @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 1
 end
 
 # Two-arg operators
-for op in (:-, :/, :\, ://, :^, :÷, :(==), :&, :|)
+for op in (:-, :/, :\, ://, :^, :÷, :&, :|)
     @eval @register $(:(Base.$op)) 2
 end
 
 # Two-arg queries
-for op in (:in,)
+for op in (:(==),
+           :in, :isless)
     @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 2
 end
 
@@ -63,5 +71,16 @@ function Base.one(::Type{Sym{TAG}}) where {TAG}
     @assume isone(x)
     return x
 end
+
+@register_query commuteswith GLOBAL_ASSUMPTION_STACK 3
+
+##################################################
+# Special cases
+##################################################
+
+commuteswith(::typeof(+), x::Sym{<:Number}, y::Sym{<:Number}) = true
+commuteswith(::typeof(+), x::Sym{<:Array}, y::Sym{<:Array}) = true
+
+commuteswith(::typeof(*), x::Sym{<:Number}, y::Sym{<:Number}) = true
 
 end # module

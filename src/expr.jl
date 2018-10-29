@@ -1,13 +1,8 @@
 expr(s::Sym) = expr(Val(s.head), s)
 
-function expr(::Val{:number}, s::Sym)
-    @assert s.head === :number
+function expr(::Val{:object}, s::Sym)
+    @assert s.head === :object
     return s.args[1]
-end
-
-function expr(::Val{:symbol}, s::Sym)
-    @assert s.head === :symbol
-    return Symbol(s.args[1])
 end
 
 function expr(::Val{:call}, s::Sym)

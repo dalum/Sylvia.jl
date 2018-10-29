@@ -22,5 +22,13 @@ function split(op, x::Sym)
     if x.head === :call && x.args[1] === op
         return x.args[2:end]
     end
-    return [x]
+    return (x,)
 end
+
+##################################################
+# Special cases
+##################################################
+
+apply(::typeof(+), x::Sym) = x
+apply(::typeof(*), x::Sym) = x
+
