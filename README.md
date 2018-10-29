@@ -1,5 +1,7 @@
 # Sylvia
 
+[![Build Status](https://travis-ci.org/dalum/Sylvia.jl.svg?branch=master)](https://travis-ci.org/dalum/Sylvia.jl)
+
 A simple symbolic library with a pretty name.
 
 ## Usage
@@ -7,16 +9,26 @@ A simple symbolic library with a pretty name.
 ```julia
 julia> using Sylvia
 
-julia> @symbols a b c d
+julia> @symbols Number a b c d
 (a, b, c, d)
 
-julia> @rule a + b --> c
+julia> x = a + b + c
+a + b + c
 
-julia> a + b + c
-2c
+julia> Sylvia.substitute(x, a => b, b => c)
+c + c + c
 
 julia> [a b; c d]^2
-2×2 Array{Any,2}:
- a ^ 2 + b * c  a * b + b * d
- c * a + d * c  c * b + d ^ 2
+2×2 Array{Sylvia.Sym{Number},2}:
+ a * a + b * c  a * b + b * d
+ c * a + d * c  c * b + d * d
+
+julia> c in d
+c in d
+
+julia> @assume c in d;
+
+julia> c in d
+true
+
 ```
