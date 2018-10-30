@@ -23,6 +23,8 @@ julia> a + b*c + c |> gather
 julia> substitute(a + b + c, a => b, b => c) |> gather
 3c
 
+julia> using LinearAlgebra
+
 julia> @symbols Matrix{Float64} A B
 (A, B)
 
@@ -44,17 +46,13 @@ julia> X = gather.(substitute.( # `b` is going to be optimized away, since we `@
 
 julia> f = @λ tr(X'X);
 
-julia> methods(f) # a function of 3 variables
+julia> methods(f) # a function of 3 variables, `a`, `c` and `d`
 # 1 method for generic function "#24":
 [1] (::getfield(Main, Symbol("##24#25")))(a, c, d) in Main
 
-julia> using BenchmarkTools; @btime f(1, 2, 3)
-  21.130 ns (0 allocations: 0 bytes)
-203
-
-julia> f = @λ gather(tr(X'X)); # optimize the equation first
+julia> using BenchmarkTools
 
 julia> @btime f(1, 2, 3)
-  15.471 ns (0 allocations: 0 bytes)
+  17.491 ns (0 allocations: 0 bytes)
 203
 ```
