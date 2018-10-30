@@ -4,7 +4,13 @@ macro register(name, N::Integer)
     ret = register_promote(name, symbols)
 
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
-    e = :($name($(arglist...)) = apply($name, $(symbols...)))
+    e = quote
+        function $name($(arglist...))
+            syms = ($(symbols...),)
+            all(x -> x.head === :object, syms) && return $name(map(x -> x.args[1], syms)...)
+            apply($name, syms...)
+        end
+    end
     push!(ret.args, e)
 
     return ret

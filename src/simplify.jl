@@ -41,7 +41,7 @@ function normalorder(op, x::Sym{TAG}) where {TAG}
 
     args = collect(args)
     sort!(args, alg=InsertionSort, lt=(a, b) -> _commute_lt(op, a, b))
-    return apply(op, args...)
+    return op(args...)
 end
 _commute_lt(op, a, b) = (commuteswith(op, a, b) === true || commuteswith(op, b, a) === true) && isless(string(a), string(b))
 
@@ -78,7 +78,7 @@ function rle(op, enc_op, x::Sym{TAG}) where {TAG}
             n = 1
         end
     end
-    return apply(op, out_args...)
+    return op(out_args...)
 end
 
 """
