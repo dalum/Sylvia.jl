@@ -4,7 +4,7 @@ import DataStructures: OrderedDict
 import LinearAlgebra
 
 export @S_str, @assume, @expr, @λ, @symbols,
-    commuteswith, gather, tagof
+    commuteswith, gather, substitute, tagof
 
 include("sym.jl")
 include("sig.jl")
@@ -17,6 +17,8 @@ include("baseops.jl")
 include("substitute.jl")
 include("simplify.jl")
 
+include("array.jl")
+
 ##################################################
 # Base
 ##################################################
@@ -24,7 +26,7 @@ include("simplify.jl")
 # One-arg operators
 for op in (:+, :-, :!,
            :abs, :abs2, :adjoint, :complex, :conj, :exp, :imag, :inv,
-           :log, :one, :real, :sqrt, :transpose, :zero,
+           :log, :one, :oneunit, :real, :sqrt, :transpose, :zero,
            :cos, :sin, :tan, :sec, :csc, :cot,
            :acos, :asin, :atan, :asec, :acsc, :acot,
            :cosh, :sinh, :tanh, :sech, :csch, :coth,
@@ -37,21 +39,31 @@ for op in (:norm,)
 end
 
 # One-arg queries
-for op in (:iseven, :isinf, :isnan, :isodd, :isone, :iszero)
+for op in (:iseven, :isinf, :isnan, :isodd)
     @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 1
+end
+
+for (op, idop) in ((:isone, :one), (:iszero, :zero))
+    @eval @register_query_identity $(:(Base.$op)) $(:(Base.$idop)) GLOBAL_ASSUMPTION_STACK 1
 end
 
 # Two-arg operators
 for op in (:-, :/, :\, ://, :^, :÷, :&, :|)
     @eval @register $(:(Base.$op)) 2
 end
+Base.getindex(x::Sym, val::Symbol) = Base.getindex(promote(x, QuoteNode(val))...)
+Base.getindex(x::Sym, vals...) = Base.getindex(promote(x, map(val -> val isa Symbol ? QuoteNode(val) : val, vals)...)...)
+Base.getindex(x::Sym, val::Sym) = combine(:ref, x, val)
+Base.getindex(x::Sym, vals::Sym...) = combine(:ref, x, vals...)
+# Base.getproperty(x::Sym, val::Symbol) = Base.getproperty(promote(x, QuoteNode(val))...)
 
 # Two-arg queries
 for op in (:(==),
-           :in, :isless)
+           :isless)
     @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 2
 end
 
+Base.in(x::Sym, y::Sym) = apply_query(in, GLOBAL_ASSUMPTION_STACK, x, y)
 
 # Multi-arg operators
 for op in (:+, :*)
@@ -60,23 +72,15 @@ end
 
 Base.isequal(x::Sym, y::Sym) = x === y
 
-function Base.zero(::Type{Sym{TAG}}) where {TAG}
-    x = Sym{TAG}(:call, zero, TAG)
-    @assume iszero(x)
-    return x
-end
-
-function Base.one(::Type{Sym{TAG}}) where {TAG}
-    x = Sym{TAG}(:call, one, TAG)
-    @assume isone(x)
-    return x
-end
-
 @register_query commuteswith GLOBAL_ASSUMPTION_STACK 3
 
 ##################################################
 # Special cases
 ##################################################
+
+Base.zero(::Type{Sym{TAG}}) where TAG = apply(zero, Sym(TAG))
+Base.one(::Type{Sym{TAG}}) where TAG = apply(one, Sym(TAG))
+Base.oneunit(::Type{Sym{TAG}}) where TAG = apply(oneunit, Sym(TAG))
 
 commuteswith(::typeof(+), x::Sym{<:Number}, y::Sym{<:Number}) = true
 commuteswith(::typeof(+), x::Sym{<:Array}, y::Sym{<:Array}) = true

@@ -13,7 +13,7 @@ end
 Sym(x) = Sym{tagof(x)}(x)
 Sym(x::Expr, m::Module = Base) = Sym{tagof(x)}(x, m)
 Sym{TAG}(x) where {TAG} = Sym{TAG}(:object, x)
-Sym{TAG}(x::Symbol) where {TAG} = Sym{TAG}(:object, x)
+Sym{TAG}(x::Symbol) where {TAG} = Sym{TAG}(:symbol, x)
 Sym{TAG}(e::Expr, m::Module = Base) where {TAG} = Sym{TAG}(Val(e.head), e, m)
 
 function Sym{TAG}(::Val{head}, e::Expr, m::Module) where {TAG,head}
@@ -67,7 +67,7 @@ end
 
 symbols(TAG::Type, xs::Symbol...) = Tuple(Sym{TAG}(x) for x in xs)
 
-macro symbols(TAG::Symbol, xs::Symbol...)
+macro symbols(TAG, xs::Symbol...)
     ret = Expr(:block)
     tup = Expr(:tuple)
     for x in xs
@@ -79,9 +79,10 @@ macro symbols(TAG::Symbol, xs::Symbol...)
 end
 
 ##################################################
-# Iteration
+# Base extensions
 ##################################################
 
+Base.copy(x::Sym) = x
 Base.iterate(x::Sym) = (x, nothing)
 Base.iterate(x::Sym, ::Any) = nothing
 

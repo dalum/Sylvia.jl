@@ -12,29 +12,49 @@ julia> using Sylvia
 julia> @symbols Number a b c d
 (a, b, c, d)
 
-julia> x = a + b + c
-a + b + c
+julia> a + b*c + c |> gather
+a + b * c + c
 
-julia> Sylvia.substitute(x, a => b, b => c)
-c + c + c
+julia> @assume iszero(a) isone(b);
 
-julia> [a b; c d]^2
+julia> a + b*c + c |> gather
+2c
+
+julia> substitute(a + b + c, a => b, b => c) |> gather
+3c
+
+julia> @symbols Matrix{Float64} A B
+(A, B)
+
+julia> Matrix(A, 2, 2)^2
+2×2 Array{Sylvia.Sym{Float64},2}:
+ A[1, 1] * A[1, 1] + A[1, 2] * A[2, 1]  A[1, 1] * A[1, 2] + A[1, 2] * A[2, 2]
+ A[2, 1] * A[1, 1] + A[2, 2] * A[2, 1]  A[2, 1] * A[1, 2] + A[2, 2] * A[2, 2]
+
+julia> X = gather.(substitute.( # `b` is going to be optimized away, since we `@assume isone(b)`
+           Matrix(A, 2, 2)^2,
+           Ref(A[1,1] => a),
+           Ref(A[1,2] => b),
+           Ref(A[2,1] => c),
+           Ref(A[2,2] => d)
+       ))
 2×2 Array{Sylvia.Sym{Number},2}:
- a * a + b * c  a * b + b * d
- c * a + d * c  c * b + d * d
+ a ^ 2 + c      d
+ a * c + c * d  c + d ^ 2
 
-julia> c in d
-c in d
+julia> f = @λ tr(X'X);
 
-julia> @assume c in d;
+julia> methods(f) # a function of 3 variables
+# 1 method for generic function "#24":
+[1] (::getfield(Main, Symbol("##24#25")))(a, c, d) in Main
 
-julia> c in d
-true
+julia> using BenchmarkTools; @btime f(1, 2, 3)
+  21.130 ns (0 allocations: 0 bytes)
+203
 
-julia> x = a + b + a + sin(c) * sin(c) + cos(a + d) * cos(d + a)
-a + b + a + sin(c) * sin(c) + cos(a + d) * cos(d + a)
+julia> f = @λ gather(tr(X'X)); # optimize the equation first
 
-julia> gather(x)
-a * 2 + b + cos(a + d) ^ 2 + sin(c) ^ 2
-
+julia> @btime f(1, 2, 3)
+  15.471 ns (0 allocations: 0 bytes)
+203
 ```

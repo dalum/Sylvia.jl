@@ -30,7 +30,33 @@ macro register_query(name, assumptions, N::Integer)
     ret = register_promote(name, symbols)
 
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
-    e = :($name($(arglist...)) = apply_query($name, $assumptions, $(symbols...)))
+    e = quote
+        function $name($(arglist...))
+            syms = ($(symbols...),)
+            all(x -> x.head === :object, syms) && $name(map(x -> x.args[1], syms)...) && return true
+            apply_query($name, $assumptions, $(symbols...))
+        end
+    end
+    push!(ret.args, e)
+
+    return ret
+end
+
+macro register_query_identity(name, identity_name, assumptions, N::Integer)
+    name = esc(name)
+    assumptions = esc(assumptions)
+    symbols = Any[gensym() for _ in 1:N]
+    ret = register_promote(name, symbols)
+
+    arglist = [Expr(:(::), s, :Sym) for s in symbols]
+    e = quote
+        function $name($(arglist...))
+            syms = ($(symbols...),)
+            all(x -> x.head === :object, syms) && $name(map(x -> x.args[1], syms)...) && return true
+            length(syms) <= 1 && syms[1].head === :call && syms[1].args[1] === $identity_name && return true
+            apply_query($name, $assumptions, $(symbols...))
+        end
+    end
     push!(ret.args, e)
 
     return ret

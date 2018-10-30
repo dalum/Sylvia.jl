@@ -4,7 +4,22 @@
 Common subexpression elimination.
 
 """
-function cse end
+function cse(x::Sym, subxs = Dict{Sym,Sym}())
+    if x.head === :call
+        args = collect(x.args[2:end])
+    else
+        args = collect(x.args)
+    end
+
+    for i in eachindex(args)
+        if args[i] in keys(subxs)
+            args[i] = subxs[args[i]]
+        else
+            args[i] = subxs[args[i]] = Sym{tagof(args[i])}(gensym())
+        end
+    end
+    return args, subxs
+end
 
 """
     normalorder
@@ -12,6 +27,7 @@ function cse end
 Sort by commuting adjacent elements.
 
 """
+normalorder(op, x) = x
 function normalorder(op, x::Sym{TAG}) where {TAG}
     if x.head === :call
         args = map(arg -> normalorder(op, arg), x.args[2:end])
@@ -65,11 +81,57 @@ function rle(op, enc_op, x::Sym{TAG}) where {TAG}
     return apply(op, out_args...)
 end
 
+"""
+
+"""
+function factorize(op, fac_op, x::Sym) end
+
+remove_identities(op, f, x) = x
+function remove_identities(op, f, x::Sym{TAG}) where TAG
+    if x.head === :call
+        in_args = map(a -> remove_identities(op, f, a), x.args[2:end])
+    else
+        return x
+    end
+
+    if x.args[1] !== op
+        return Sym{TAG}(:call, x.args[1], in_args...)
+    end
+
+    out_args = []
+    for arg in in_args
+        if f(arg) !== true
+            push!(out_args, arg)
+        end
+    end
+    if length(out_args) == 0
+        push!(out_args, in_args[end])
+    end
+    return Sym{TAG}(:call, x.args[1], out_args...)
+end
+
 ##################################################
-# Special cases
+# Multi-algorithms
 ##################################################
 
-function gather(x::Sym)
+const MAX_GATHER_ITERATIONS = 10
+
+function gather(x)
+    x_ = x
+    for _ in 1:MAX_GATHER_ITERATIONS
+        x = _gather_one_iteration(x_)
+        if x === x_
+            break
+        else
+            x_ = x
+        end
+    end
+    return x
+end
+
+function _gather_one_iteration(x::Sym)
+    x = remove_identities(+, iszero, x)
+    x = remove_identities(*, isone, x)
     x = normalorder(+, x)
     x = normalorder(*, x)
     x = rle(+, *, x)

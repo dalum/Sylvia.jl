@@ -1,7 +1,12 @@
-expr(s::Sym) = expr(Val(s.head), s)
+expr(s::Sym) = (expr(Val(s.head), s))
 
 function expr(::Val{:object}, s::Sym)
     @assert s.head === :object
+    return s.args[1]
+end
+
+function expr(::Val{:symbol}, s::Sym)
+    @assert s.head === :symbol
     return s.args[1]
 end
 
