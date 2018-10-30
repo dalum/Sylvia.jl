@@ -17,7 +17,13 @@ macro register_split(name, N::Integer)
 
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
     splitlist = [Expr(:(...), Expr(:call, :split, name, s)) for s in symbols]
-    e = :($name($(arglist...)) = apply($name, $(splitlist...)))
+    e = quote
+        function $name($(arglist...))
+            syms = ($(symbols...),)
+            all(x -> x.head === :object, syms) && return $name(map(x -> x.args[1], syms)...)
+            apply($name, $(splitlist...))
+        end
+    end
     push!(ret.args, e)
 
     return ret
@@ -35,6 +41,25 @@ macro register_query(name, assumptions, N::Integer)
             syms = ($(symbols...),)
             all(x -> x.head === :object, syms) && $name(map(x -> x.args[1], syms)...) && return true
             apply_query($name, $assumptions, $(symbols...))
+        end
+    end
+    push!(ret.args, e)
+
+    return ret
+end
+
+macro register_query_symmetric(name, assumptions, N::Integer)
+    name = esc(name)
+    assumptions = esc(assumptions)
+    symbols = Any[gensym() for _ in 1:N]
+    ret = register_promote(name, symbols)
+
+    arglist = [Expr(:(::), s, :Sym) for s in symbols]
+    e = quote
+        function $name($(arglist...))
+            syms = ($(symbols...),)
+            all(x -> x.head === :object, syms) && $name(map(x -> x.args[1], syms)...) && return true
+            apply_query_symmetric($name, $assumptions, $(symbols...))
         end
     end
     push!(ret.args, e)

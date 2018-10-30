@@ -1,5 +1,6 @@
 module Sylvia
 
+import Combinatorics: permutations
 import DataStructures: OrderedDict
 import LinearAlgebra
 
@@ -25,7 +26,7 @@ include("array.jl")
 
 # One-arg operators
 for op in (:+, :-, :!,
-           :abs, :abs2, :adjoint, :complex, :conj, :exp, :imag, :inv,
+           :abs, :abs2, :complex, :conj, :exp, :imag, :inv,
            :log, :one, :oneunit, :real, :sqrt, :transpose, :zero,
            :cos, :sin, :tan, :sec, :csc, :cot,
            :acos, :asin, :atan, :asec, :acsc, :acot,
@@ -33,6 +34,7 @@ for op in (:+, :-, :!,
            :acosh, :asinh, :atanh, :asech, :acsch, :acoth)
     @eval @register $(:(Base.$op)) 1
 end
+Base.adjoint(x::Sym) = combine(Symbol("'"), x)
 
 for op in (:norm,)
     @eval @register $(:(LinearAlgebra.$op)) 1
@@ -55,12 +57,14 @@ Base.getindex(x::Sym, val::Symbol) = Base.getindex(promote(x, QuoteNode(val))...
 Base.getindex(x::Sym, vals...) = Base.getindex(promote(x, map(val -> val isa Symbol ? QuoteNode(val) : val, vals)...)...)
 Base.getindex(x::Sym, val::Sym) = combine(:ref, x, val)
 Base.getindex(x::Sym, vals::Sym...) = combine(:ref, x, vals...)
-# Base.getproperty(x::Sym, val::Symbol) = Base.getproperty(promote(x, QuoteNode(val))...)
 
 # Two-arg queries
-for op in (:(==),
-           :isless)
+for op in (:isless, :<)
     @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 2
+end
+
+for op in (:(==),)
+    @eval @register_query_symmetric $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 2
 end
 
 Base.in(x::Sym, y::Sym) = apply_query(in, GLOBAL_ASSUMPTION_STACK, x, y)

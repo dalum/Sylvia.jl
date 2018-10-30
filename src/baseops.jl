@@ -13,6 +13,18 @@ function apply_query(op, as::AssumptionStack, xs::Sym...)
     return q === missing ? x : q
 end
 
+function apply_query_symmetric(op, as::AssumptionStack, xs::Sym...)
+    x0 = apply(op, xs...)
+    q = query(as, x0)
+    q === missing || return q
+    for ys in collect(permutations(xs))[2:end]
+        y = apply(op, ys...)
+        q = query(as, y)
+        q === missing || return q
+    end
+    return x0
+end
+
 function combine(head::Symbol, xs...)
     TAG = promote_tag(head, map(tagof, xs)...)
     return Sym{TAG}(head, xs...)
