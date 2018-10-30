@@ -1,4 +1,4 @@
-# Sylvia
+# Sylvia 🧚
 
 [![Build Status](https://travis-ci.org/dalum/Sylvia.jl.svg?branch=master)](https://travis-ci.org/dalum/Sylvia.jl)
 
