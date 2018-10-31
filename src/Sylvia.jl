@@ -39,10 +39,6 @@ for op in (:+, :-, :!,
 end
 Base.adjoint(x::Sym) = combine(Symbol("'"), x)
 
-for op in (:norm,)
-    @eval @register $(:(LinearAlgebra.$op)) 1
-end
-
 # One-arg queries
 for op in (:iseven, :isinf, :isnan, :isodd)
     @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 1
@@ -52,6 +48,7 @@ for op in (:istrue, :isfalse)
     @eval @register_query $op GLOBAL_ASSUMPTION_STACK 1
 end
 
+# One-arg queries with identities
 for (op, idop) in ((:isone, :one), (:iszero, :zero))
     @eval @register_query_identity $(:(Base.$op)) $(:(Base.$idop)) GLOBAL_ASSUMPTION_STACK 1
 end
@@ -81,6 +78,7 @@ for op in (:isless, :<, :&, :|)
     @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 2
 end
 
+# Two-arg symmetric queries
 for op in (:(==),)
     @eval @register_query_symmetric $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 2
 end
@@ -95,6 +93,21 @@ end
 Base.isequal(x::Sym, y::Sym) = x === y
 
 @register_query commuteswith GLOBAL_ASSUMPTION_STACK 3
+
+##################################################
+# Linear algebra
+##################################################
+
+# One-arg operators
+for op in (:norm,)
+    @eval @register $(:(LinearAlgebra.$op)) 1
+end
+
+# Two-arg operators
+for op in (:dot, :cross)
+    @eval @register $(:(LinearAlgebra.$op)) 2
+end
+
 
 ##################################################
 # Special cases

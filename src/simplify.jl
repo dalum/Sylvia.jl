@@ -111,7 +111,7 @@ function remove_identities(op, isidentity, x::Sym{TAG}) where TAG
     if length(out_args) == 0
         push!(out_args, in_args[end])
     end
-    return Sym{TAG}(:call, firstarg(x), out_args...)
+    return apply(firstarg(x), out_args...)
 end
 
 """
@@ -140,7 +140,7 @@ function resolve_absorbing(op, isabsorbing, x::Sym{TAG}) where TAG
             break
         end
     end
-    return Sym{TAG}(:call, firstarg(x), args...)
+    return apply(firstarg(x), args...)
 end
 
 ##################################################
