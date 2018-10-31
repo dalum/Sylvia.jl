@@ -37,9 +37,13 @@ getsymbols(::Val{:symbol}, x::Sym) = Set(Symbol[firstarg(x)])
 getsymbols(x::Tuple) = mapreduce(getsymbols, union, x)
 getsymbols(x::AbstractArray) = mapreduce(getsymbols, union, x)
 
+getops(x) = Set([])
+getops(x::Sym) = getops(Val(gethead(x)), x)
+getops(::Val, x::Sym) = mapreduce(getops, union, getargs(x))
+getops(::Val{:call}, x::Sym) = union(Set([firstarg(x)]), mapreduce(getops, union, tailargs(x)))
+getops(x::Tuple) = mapreduce(getops, union, x)
+getops(x::AbstractArray) = mapreduce(getops, union, x)
+
 macro λ(e)
-    obj = Base.eval(__module__, e)
-    body = expr(obj)
-    symbols = sort!(collect(getsymbols(obj)))
-    return esc(Expr(:(->), Expr(:tuple, symbols...), body))
+    return :(compile($(esc(e))))
 end
