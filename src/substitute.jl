@@ -1,4 +1,11 @@
-# Conversion
+"""
+    substitute(x, pairs...; strict=false)
+
+Using pairs of `pat => sub`, substitute occurences of `pat` in `x`
+with `sub`.  If `strict` is `true`, only allow substitutions for which
+the tag of `pat` is a subtype of the tag of `sub`.
+
+"""
 function substitute(x, pairs::Pair...; strict=false)
     pairs = map(pair -> Pair(convert(Sym, first(pair)), convert(Sym, last(pair))), pairs)
     return substitute(x, pairs..., strict=strict)
@@ -15,8 +22,15 @@ function substitute(x::Sym{TAG}, pairs::(Pair{Sym{T},Sym{S}} where {T,S})...; st
         if x === pat
             x = sub
         else
-            x = Sym{TAG}(x.head, map(arg -> substitute(arg, pat => sub, strict=strict), x.args))
+            x = Sym{TAG}(x.head, map(arg -> substitute_one(arg, pat => sub, strict=strict), x.args))
         end
     end
     return x
+end
+
+substitute_one(arg, pair::(Pair{Sym{T},Sym{S}} where {T,S}); strict=false) = arg
+substitute_one(arg::Sym, pair::(Pair{Sym{T},Sym{S}} where {T,S}); strict=false) = substitute(arg, pair, strict=strict)
+
+function substitute(f::Function, pairs::(Pair{Sym{T},Sym{S}} where {T,S})...; strict=false)
+    return substitute(f(), pairs..., strict=strict)
 end
