@@ -12,32 +12,63 @@ query(x::Sym) = query(GLOBAL_ASSUMPTION_STACK, x)
 function query(as::AssumptionStack, x::Sym)
     if hashead(x, :object) && firstarg(x) isa Bool
         return firstarg(x)
-    else
-        get(as, x, missing)
     end
+
+    if hashead(x, :call) && firstarg(x) isa typeof(Base.:|)
+        queries = map(arg -> query(as, arg), getargs(x)[2:end])
+        all(ismissing, queries) && return missing
+        all(q -> ismissing(q) || q, queries) && return true
+        return false
+    end
+
+    if hashead(x, :call) && firstarg(x) isa typeof(Base.:&)
+        queries = map(arg -> query(as, arg), getargs(x)[2:end])
+        any(ismissing, queries) && return missing
+        all(q -> !ismissing(q) && q, queries) && return true
+        return false
+    end
+
+    return get(as, x, missing)
 end
 
 assume(x::Sym, val) = assume(GLOBAL_ASSUMPTION_STACK, x, val)
 assume(as::AssumptionStack, x::Sym, val::Bool) = push!(as, x => val)
 assume(as::AssumptionStack, x::Sym, val::Missing) = unassume(as, x)
 
+const INTERCEPT_OPS = (:!, :(==), :<, :(!=))
+
 macro assume(xs...)
     ret = Expr(:block)
     for x in xs
         val = true
-        @assert x.head === :call
-        if x.args[1] === :!
-            x = x.args[2]
-            val = false
-            @assert x.head === :call
-        elseif x.args[1] === :(!=)
-            x.args[1] = :(==)
-            val = false
+        converged = false
+        while !converged
+            x_, val_ = assume_intercept(x, val)
+            converged = x_ === x && val_ === val
+            x, val = x_, val_
         end
-        x = :(apply($(map(esc, x.args)...)))
+        if firstarg(x) in INTERCEPT_OPS
+            x = :(apply($(map(esc, getargs(x))...)))
+        else
+            x = esc(x)
+        end
         push!(ret.args, :(assume($x, $val)))
     end
     return ret
+end
+
+function assume_intercept(x, val)
+    @assert hashead(x, :call) "$x"
+    if firstarg(x) in INTERCEPT_OPS
+        if firstarg(x) === :!
+            x = x.args[2]
+            val = !val
+        elseif x.args[1] === :(!=)
+            x.args[1] = :(==)
+            val = !val
+        end
+    end
+    return x, val
 end
 
 unassume(x::Sym, val::Bool) = unassume(GLOBAL_ASSUMPTION_STACK, x, val)

@@ -1,23 +1,23 @@
-expr(s::Sym) = (expr(Val(s.head), s))
+expr(s::Sym) = (expr(Val(gethead(s)), s))
 
 function expr(::Val{:object}, s::Sym)
-    @assert s.head === :object
-    return s.args[1]
+    @assert gethead(s) === :object
+    return firstarg(s)
 end
 
 function expr(::Val{:symbol}, s::Sym)
-    @assert s.head === :symbol
-    return s.args[1]
+    @assert gethead(s) === :symbol
+    return firstarg(s)
 end
 
 function expr(::Val{:call}, s::Sym)
-    @assert s.head === :call
-    return Expr(:call, nameof(s.args[1]), map(expr, s.args[2:end])...)
+    @assert gethead(s) === :call
+    return Expr(:call, nameof(firstarg(s)), map(expr, tailargs(s))...)
 end
 
 function expr(::Val{head}, s::Sym) where head
-    @assert s.head === head
-    return Expr(s.head, map(expr, s.args)...)
+    @assert gethead(s) === head
+    return Expr(gethead(s), map(expr, getargs(s))...)
 end
 
 expr(a) = a # Catch all
@@ -31,9 +31,9 @@ macro expr(x)
 end
 
 getsymbols(x) = Set(Symbol[])
-getsymbols(x::Sym) = getsymbols(Val(x.head), x)
-getsymbols(::Val, x::Sym) = mapreduce(getsymbols, union, x.args)
-getsymbols(::Val{:symbol}, x::Sym) = Set(Symbol[x.args[1]])
+getsymbols(x::Sym) = getsymbols(Val(gethead(x)), x)
+getsymbols(::Val, x::Sym) = mapreduce(getsymbols, union, getargs(x))
+getsymbols(::Val{:symbol}, x::Sym) = Set(Symbol[firstarg(x)])
 getsymbols(x::Tuple) = mapreduce(getsymbols, union, x)
 getsymbols(x::AbstractArray) = mapreduce(getsymbols, union, x)
 

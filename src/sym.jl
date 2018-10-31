@@ -92,9 +92,13 @@ Base.iterate(x::Sym, ::Any) = nothing
 
 tagof(x::Sym{TAG}) where {TAG} = TAG
 tagof(x::T) where {T} = T
+tagof(x::QuoteNode) = typeof(x.value)
 tagof(x::Symbol) = Any
 tagof(x::Expr) = Any
 
-hashead(x::Sym, head::Symbol) = x.head === head
-hashead(head::Symbol) = (x::Sym) -> x.head === head
-firstarg(x::Sym) = first(x.args)
+gethead(x) = getfield(x, :head)
+getargs(x) = getfield(x, :args)
+hashead(x, head::Symbol) = gethead(x) === head
+hashead(head::Symbol) = (x::Sym) -> gethead(x) === head
+firstarg(x) = first(getargs(x))
+tailargs(x) = getargs(x)[2:end]

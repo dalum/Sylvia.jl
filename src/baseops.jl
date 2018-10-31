@@ -33,8 +33,8 @@ function combine(head::Symbol, xs...)
 end
 
 function split(op, x::Sym)
-    if x.head === :call && x.args[1] === op
-        return x.args[2:end]
+    if hashead(x, :call) && firstarg(x) === op
+        return tailargs(x)
     end
     return (x,)
 end
@@ -45,4 +45,5 @@ end
 
 apply(::typeof(+), x::Sym) = x
 apply(::typeof(*), x::Sym) = x
-
+apply(::typeof(&), x::Sym) = x
+apply(::typeof(|), x::Sym) = x

@@ -4,7 +4,11 @@ import Combinatorics: permutations
 import LinearAlgebra
 
 export @S_str, @assume, @assumptions, @expr, @λ, @symbols, @unassume,
-    assuming, commuteswith, gather, substitute, tagof
+    assuming, commuteswith, gather, substitute, tagof,
+    isfalse, istrue
+
+istrue(x::Bool) = x === true
+isfalse(x::Bool) = x === false
 
 include("sym.jl")
 include("sig.jl")
@@ -44,12 +48,16 @@ for op in (:iseven, :isinf, :isnan, :isodd)
     @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 1
 end
 
+for op in (:istrue, :isfalse)
+    @eval @register_query $op GLOBAL_ASSUMPTION_STACK 1
+end
+
 for (op, idop) in ((:isone, :one), (:iszero, :zero))
     @eval @register_query_identity $(:(Base.$op)) $(:(Base.$idop)) GLOBAL_ASSUMPTION_STACK 1
 end
 
 # Two-arg operators
-for op in (:-, :/, :\, ://, :^, :÷, :&, :|)
+for op in (:-, :/, :\, ://, :^, :÷)
     @eval @register $(:(Base.$op)) 2
 end
 Base.getindex(x::Sym, val::Symbol) = Base.getindex(promote(x, QuoteNode(val))...)
@@ -57,8 +65,19 @@ Base.getindex(x::Sym, vals...) = Base.getindex(promote(x, map(val -> val isa Sym
 Base.getindex(x::Sym, val::Sym) = combine(:ref, x, val)
 Base.getindex(x::Sym, vals::Sym...) = combine(:ref, x, vals...)
 
+Base.getproperty(x::Sym, val::Symbol) = Base.getproperty(promote(x, QuoteNode(val))...)
+function Base.getproperty(x::Sym{TAG}, val::Sym{Symbol}) where TAG
+    if hashead(val, :object) && firstarg(val) isa QuoteNode && isconcretetype(TAG)
+        v = firstarg(val).value
+        if v in fieldnames(TAG)
+            return Sym{fieldtype(TAG, v)}(:(.), x, val)
+        end
+    end
+    return combine(:(.), x, val)
+end
+
 # Two-arg queries
-for op in (:isless, :<)
+for op in (:isless, :<, :&, :|)
     @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 2
 end
 
@@ -89,5 +108,8 @@ commuteswith(::typeof(+), x::Sym{<:Number}, y::Sym{<:Number}) = true
 commuteswith(::typeof(+), x::Sym{<:Array}, y::Sym{<:Array}) = true
 
 commuteswith(::typeof(*), x::Sym{<:Number}, y::Sym{<:Number}) = true
+
+commuteswith(::typeof(&), x::Sym{<:Bool}, y::Sym{<:Bool}) = true
+commuteswith(::typeof(|), x::Sym{<:Bool}, y::Sym{<:Bool}) = true
 
 end # module

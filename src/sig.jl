@@ -1,11 +1,12 @@
 struct Sig{TAG,DATA,UNIQUE} end
 
 function Sig(x::Sym{TAG}) where {TAG}
-    DATA = typeof(x.args)
-    unique = Vector{Int}(undef, length(x.args))
-    for i in eachindex(x.args)
+    args = getargs(x)
+    DATA = typeof(args)
+    unique = Vector{Int}(undef, length(args))
+    for i in eachindex(args)
         for j in 1:i
-            if x.args[i] === x.args[j]
+            if args[i] === args[j]
                 unique[i] = j
                 break
             end

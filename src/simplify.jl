@@ -5,10 +5,10 @@ Common subexpression elimination.
 
 """
 function cse(x::Sym, subxs = Dict{Sym,Sym}())
-    if x.head === :call
-        args = collect(x.args[2:end])
+    if hashead(x, :call)
+        args = collect(tailargs(x))
     else
-        args = collect(x.args)
+        args = collect(getargs(x))
     end
 
     for i in eachindex(args)
@@ -30,20 +30,22 @@ Sort by commuting adjacent elements.
 normalorder(op, x) = x
 function normalorder(op, x::Sym{TAG}) where {TAG}
     if x.head === :call
-        args = map(arg -> normalorder(op, arg), x.args[2:end])
+        args = map(arg -> normalorder(op, arg), tailargs(x))
     else
         return x
     end
 
-    if x.args[1] !== op
-        return Sym{TAG}(x.head, x.args[1], args...)
+    if firstarg(x) !== op
+        return Sym{TAG}(x.head, firstarg(x), args...)
     end
 
     args = collect(args)
     sort!(args, alg=InsertionSort, lt=(a, b) -> _commute_lt(op, a, b))
     return apply(op, args...)
 end
-_commute_lt(op, a, b) = (commuteswith(op, a, b) === true || commuteswith(op, b, a) === true) && isless(string(a), string(b))
+function _commute_lt(op, a, b)
+    return (commuteswith(op, a, b) === true || commuteswith(op, b, a) === true) && isless(string(a), string(b))
+end
 
 """
     rle
@@ -54,13 +56,13 @@ Run length encode.
 rle(op, enc_op, x) = x
 function rle(op, enc_op, x::Sym{TAG}) where {TAG}
     if x.head === :call
-        in_args = map(arg -> rle(op, enc_op, arg), x.args[2:end])
+        in_args = map(arg -> rle(op, enc_op, arg), tailargs(x))
     else
         return x
     end
 
-    if x.args[1] !== op
-        return Sym{TAG}(x.head, x.args[1], in_args...)
+    if firstarg(x) !== op
+        return Sym{TAG}(x.head, firstarg(x), in_args...)
     end
 
     N = length(in_args)
@@ -90,14 +92,14 @@ returns true, if the element is an identity element of `op`.
 """
 remove_identities(op, isidentity, x) = x
 function remove_identities(op, isidentity, x::Sym{TAG}) where TAG
-    if x.head === :call
-        in_args = map(a -> remove_identities(op, isidentity, a), x.args[2:end])
+    if hashead(x, :call)
+        in_args = map(a -> remove_identities(op, isidentity, a), tailargs(x))
     else
         return x
     end
 
-    if x.args[1] !== op
-        return Sym{TAG}(:call, x.args[1], in_args...)
+    if firstarg(x) !== op
+        return Sym{TAG}(:call, firstarg(x), in_args...)
     end
 
     out_args = []
@@ -109,7 +111,7 @@ function remove_identities(op, isidentity, x::Sym{TAG}) where TAG
     if length(out_args) == 0
         push!(out_args, in_args[end])
     end
-    return Sym{TAG}(:call, x.args[1], out_args...)
+    return Sym{TAG}(:call, firstarg(x), out_args...)
 end
 
 """
@@ -122,14 +124,14 @@ function that returns true, if the element is an absorbing element of
 """
 resolve_absorbing(op, isabsorbing, x) = x
 function resolve_absorbing(op, isabsorbing, x::Sym{TAG}) where TAG
-    if x.head === :call
-        args = map(a -> resolve_absorbing(op, isabsorbing, a), x.args[2:end])
+    if hashead(x, :call)
+        args = map(a -> resolve_absorbing(op, isabsorbing, a), tailargs(x))
     else
         return x
     end
 
-    if x.args[1] !== op
-        return Sym{TAG}(:call, x.args[1], args...)
+    if firstarg(x) !== op
+        return Sym{TAG}(:call, firstarg(x), args...)
     end
 
     for arg in args
@@ -138,7 +140,7 @@ function resolve_absorbing(op, isabsorbing, x::Sym{TAG}) where TAG
             break
         end
     end
-    return Sym{TAG}(:call, x.args[1], args...)
+    return Sym{TAG}(:call, firstarg(x), args...)
 end
 
 ##################################################
@@ -168,5 +170,13 @@ function _gather_one_iteration(x::Sym)
     x = normalorder(*, x)
     x = rle(+, *, x)
     x = rle(*, ^, x)
+
+    x = remove_identities(|, isfalse, x)
+    x = remove_identities(&, istrue, x)
+    x = resolve_absorbing(|, istrue, x)
+    x = resolve_absorbing(&, isfalse, x)
+    x = normalorder(&, x)
+    x = normalorder(|, x)
+
     return x
 end
