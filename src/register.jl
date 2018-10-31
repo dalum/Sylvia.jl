@@ -6,9 +6,7 @@ macro register(name, N::Integer)
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
     e = quote
         function $name($(arglist...))
-            syms = ($(symbols...),)
-            all(x -> x.head === :object, syms) && return $name(map(x -> x.args[1], syms)...)
-            apply($name, syms...)
+            apply($name, $(symbols...))
         end
     end
     push!(ret.args, e)
@@ -25,8 +23,6 @@ macro register_split(name, N::Integer)
     splitlist = [Expr(:(...), Expr(:call, :split, name, s)) for s in symbols]
     e = quote
         function $name($(arglist...))
-            syms = ($(symbols...),)
-            all(x -> x.head === :object, syms) && return $name(map(x -> x.args[1], syms)...)
             apply($name, $(splitlist...))
         end
     end
@@ -44,8 +40,6 @@ macro register_query(name, assumptions, N::Integer)
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
     e = quote
         function $name($(arglist...))
-            syms = ($(symbols...),)
-            all(x -> x.head === :object, syms) && $name(map(x -> x.args[1], syms)...) && return true
             apply_query($name, $assumptions, $(symbols...))
         end
     end
@@ -63,8 +57,6 @@ macro register_query_symmetric(name, assumptions, N::Integer)
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
     e = quote
         function $name($(arglist...))
-            syms = ($(symbols...),)
-            all(x -> x.head === :object, syms) && $name(map(x -> x.args[1], syms)...) && return true
             apply_query_symmetric($name, $assumptions, $(symbols...))
         end
     end
@@ -83,8 +75,7 @@ macro register_query_identity(name, identity_name, assumptions, N::Integer)
     e = quote
         function $name($(arglist...))
             syms = ($(symbols...),)
-            all(x -> x.head === :object, syms) && $name(map(x -> x.args[1], syms)...) && return true
-            length(syms) <= 1 && syms[1].head === :call && syms[1].args[1] === $identity_name && return true
+            length(syms) <= 1 && hashead(syms[1], :call) && firstarg(syms[1]) === $identity_name && return true
             apply_query($name, $assumptions, $(symbols...))
         end
     end

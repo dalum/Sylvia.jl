@@ -94,3 +94,7 @@ tagof(x::Sym{TAG}) where {TAG} = TAG
 tagof(x::T) where {T} = T
 tagof(x::Symbol) = Any
 tagof(x::Expr) = Any
+
+hashead(x::Sym, head::Symbol) = x.head === head
+hashead(head::Symbol) = (x::Sym) -> x.head === head
+firstarg(x::Sym) = first(x.args)

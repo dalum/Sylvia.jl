@@ -4,7 +4,11 @@
 
 function apply(op, xs::Sym...)
     TAG = promote_tag(:call, op, map(tagof, xs)...)
-    return Sym{TAG}(:call, op, xs...)
+    if all(hashead(:object), xs)
+        return Sym{TAG}(op(map(firstarg, xs)...))
+    else
+        return Sym{TAG}(:call, op, xs...)
+    end
 end
 
 function apply_query(op, as::AssumptionStack, xs::Sym...)
@@ -14,13 +18,11 @@ function apply_query(op, as::AssumptionStack, xs::Sym...)
 end
 
 function apply_query_symmetric(op, as::AssumptionStack, xs::Sym...)
-    x0 = apply(op, xs...)
-    q = query(as, x0)
-    q === missing || return q
-    for ys in collect(permutations(xs))[2:end]
-        y = apply(op, ys...)
-        q = query(as, y)
-        q === missing || return q
+    x0 = nothing
+    for ys in permutations(xs)
+        q = apply_query(op, as, ys...)
+        q isa Bool && return q
+        x0 === nothing && (x0 = q)
     end
     return x0
 end

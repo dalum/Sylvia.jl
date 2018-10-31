@@ -1,11 +1,10 @@
 module Sylvia
 
 import Combinatorics: permutations
-import DataStructures: OrderedDict
 import LinearAlgebra
 
-export @S_str, @assume, @expr, @λ, @symbols,
-    commuteswith, gather, substitute, tagof
+export @S_str, @assume, @assumptions, @expr, @λ, @symbols, @unassume,
+    assuming, commuteswith, gather, substitute, tagof
 
 include("sym.jl")
 include("sig.jl")
