@@ -53,6 +53,13 @@ function Base.pop!(d::StackedDict{T,S}, pair::Pair{<:T,<:S}) where {T,S}
     return pair[2]
 end
 
+function popall!(d::StackedDict{T,S}, key::T) where {T,S}
+    indices = findall(isequal(key), d.keys)
+    deleteat!(d.keys, indices)
+    deleteat!(d.vals, indices)
+    return d
+end
+
 function Base.empty!(d::StackedDict)
     Base.empty!(d.keys)
     Base.empty!(d.vals)

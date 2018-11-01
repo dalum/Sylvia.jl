@@ -29,14 +29,14 @@ Sort by commuting adjacent elements.
 """
 normalorder(op, x) = x
 function normalorder(op, x::Sym{TAG}) where {TAG}
-    if x.head === :call
+    if hashead(x, :call)
         args = map(arg -> normalorder(op, arg), tailargs(x))
     else
         return x
     end
 
     if firstarg(x) !== op
-        return Sym{TAG}(x.head, firstarg(x), args...)
+        return Sym{TAG}(:call, firstarg(x), args...)
     end
 
     args = collect(args)
@@ -55,14 +55,14 @@ Run length encode.
 """
 rle(op, enc_op, x) = x
 function rle(op, enc_op, x::Sym{TAG}) where {TAG}
-    if x.head === :call
+    if hashead(x, :call)
         in_args = map(arg -> rle(op, enc_op, arg), tailargs(x))
     else
         return x
     end
 
     if firstarg(x) !== op
-        return Sym{TAG}(x.head, firstarg(x), in_args...)
+        return Sym{TAG}(:call, firstarg(x), in_args...)
     end
 
     N = length(in_args)
@@ -162,6 +162,7 @@ function gather(x)
     return x
 end
 
+_gather_one_iteration(x) = x
 function _gather_one_iteration(x::Sym)
     x = remove_identities(+, iszero, x)
     x = remove_identities(*, isone, x)

@@ -83,8 +83,8 @@ end
 ##################################################
 
 Base.copy(x::Sym) = x
-Base.iterate(x::Sym) = (x, nothing)
-Base.iterate(x::Sym, ::Any) = nothing
+Base.iterate(x::Sym) = (x[1], 2)
+Base.iterate(x::Sym, i) = length(x) + 1 === i ? nothing : (x[i], i + 1)
 
 ##################################################
 # Utilities

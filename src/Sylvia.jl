@@ -7,8 +7,8 @@ export @S_str, @assume, @assumptions, @expr, @λ, @symbols, @unassume,
     assuming, commuteswith, gather, substitute, tagof,
     isfalse, istrue
 
-istrue(x::Bool) = x === true
-isfalse(x::Bool) = x === false
+istrue(x) = x === true
+isfalse(x) = x === false
 
 include("sym.jl")
 include("sig.jl")
@@ -18,7 +18,7 @@ include("show.jl")
 include("compile.jl")
 include("assume.jl")
 include("register.jl")
-include("baseops.jl")
+include("apply.jl")
 include("substitute.jl")
 include("simplify.jl")
 
@@ -29,33 +29,30 @@ include("array.jl")
 ##################################################
 
 # One-arg operators
+for op in (:istrue, :isfalse)
+    @eval @register $op 1
+end
+
 for op in (:+, :-, :!,
+           :length, :size,
            :abs, :abs2, :complex, :conj, :exp, :imag, :inv,
            :log, :one, :oneunit, :real, :sqrt, :transpose, :zero,
            :cos, :sin, :tan, :sec, :csc, :cot,
            :acos, :asin, :atan, :asec, :acsc, :acot,
            :cosh, :sinh, :tanh, :sech, :csch, :coth,
-           :acosh, :asinh, :atanh, :asech, :acsch, :acoth)
+           :acosh, :asinh, :atanh, :asech, :acsch, :acoth,
+           :iseven, :isinf, :isnan, :isodd)
     @eval @register $(:(Base.$op)) 1
 end
 Base.adjoint(x::Sym) = combine(Symbol("'"), x)
 
-# One-arg queries
-for op in (:iseven, :isinf, :isnan, :isodd)
-    @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 1
-end
-
-for op in (:istrue, :isfalse)
-    @eval @register_query $op GLOBAL_ASSUMPTION_STACK 1
-end
-
-# One-arg queries with identities
+# One-arg operators with identities
 for (op, idop) in ((:isone, :one), (:iszero, :zero))
-    @eval @register_query_identity $(:(Base.$op)) $(:(Base.$idop)) GLOBAL_ASSUMPTION_STACK 1
+    @eval @register_identity $(:(Base.$op)) $(:(Base.$idop)) 1
 end
 
 # Two-arg operators
-for op in (:-, :/, :\, ://, :^, :÷)
+for op in (:-, :/, :\, ://, :^, :÷, :isless, :<, :&, :|)
     @eval @register $(:(Base.$op)) 2
 end
 Base.getindex(x::Sym, val::Symbol) = Base.getindex(promote(x, QuoteNode(val))...)
@@ -74,17 +71,12 @@ function Base.getproperty(x::Sym{TAG}, val::Sym{Symbol}) where TAG
     return combine(:(.), x, val)
 end
 
-# Two-arg queries
-for op in (:isless, :<, :&, :|)
-    @eval @register_query $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 2
-end
-
-# Two-arg symmetric queries
+# Two-arg symmetric operators
 for op in (:(==),)
-    @eval @register_query_symmetric $(:(Base.$op)) GLOBAL_ASSUMPTION_STACK 2
+    @eval @register_symmetric $(:(Base.$op)) 2
 end
 
-Base.in(x::Sym, y::Sym) = apply_query(in, GLOBAL_ASSUMPTION_STACK, x, y)
+Base.in(x::Sym, y::Sym) = apply(in, x, y)
 
 # Multi-arg operators
 for op in (:+, :*)
@@ -93,7 +85,7 @@ end
 
 Base.isequal(x::Sym, y::Sym) = x === y
 
-@register_query commuteswith GLOBAL_ASSUMPTION_STACK 3
+@register commuteswith 3
 
 ##################################################
 # Linear algebra

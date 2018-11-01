@@ -31,16 +31,15 @@ macro register_split(name, N::Integer)
     return ret
 end
 
-macro register_query(name, assumptions, N::Integer)
+macro register_symmetric(name, N::Integer)
     name = esc(name)
-    assumptions = esc(assumptions)
     symbols = Any[gensym() for _ in 1:N]
     ret = register_promote(name, symbols)
 
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
     e = quote
         function $name($(arglist...))
-            apply_query($name, $assumptions, $(symbols...))
+            apply_symmetric($name, $(symbols...))
         end
     end
     push!(ret.args, e)
@@ -48,26 +47,8 @@ macro register_query(name, assumptions, N::Integer)
     return ret
 end
 
-macro register_query_symmetric(name, assumptions, N::Integer)
+macro register_identity(name, identity_name, N::Integer)
     name = esc(name)
-    assumptions = esc(assumptions)
-    symbols = Any[gensym() for _ in 1:N]
-    ret = register_promote(name, symbols)
-
-    arglist = [Expr(:(::), s, :Sym) for s in symbols]
-    e = quote
-        function $name($(arglist...))
-            apply_query_symmetric($name, $assumptions, $(symbols...))
-        end
-    end
-    push!(ret.args, e)
-
-    return ret
-end
-
-macro register_query_identity(name, identity_name, assumptions, N::Integer)
-    name = esc(name)
-    assumptions = esc(assumptions)
     symbols = Any[gensym() for _ in 1:N]
     ret = register_promote(name, symbols)
 
@@ -76,7 +57,7 @@ macro register_query_identity(name, identity_name, assumptions, N::Integer)
         function $name($(arglist...))
             syms = ($(symbols...),)
             length(syms) <= 1 && hashead(syms[1], :call) && firstarg(syms[1]) === $identity_name && return true
-            apply_query($name, $assumptions, $(symbols...))
+            apply($name, $(symbols...))
         end
     end
     push!(ret.args, e)

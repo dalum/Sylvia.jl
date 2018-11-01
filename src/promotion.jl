@@ -10,6 +10,7 @@ Base.convert(::Type{Sym{T}}, x::Sym) where {T} = Sym{T}(gethead(x), getargs(x)..
 Base.convert(::Type{Tuple{Vararg{Sym,N} where N}}, xs::Tuple) = Tuple(Sym(x) for x in xs)
 Base.convert(::Type{Tuple{Vararg{Sym{T},N} where N}}, xs::Tuple) where {T} = Tuple(Sym{T}(x) for x in xs)
 
+Base.promote_rule(::Type{Sym{Any}}, ::Type{Any}) = Sym
 Base.promote_rule(::Type{Sym{T}}, ::Type{S}) where {T,S} = Sym
 Base.promote_rule(::Type{Sym{T}}, ::Type{T}) where {T} = Sym{T}
 Base.promote_rule(::Type{Sym{T}}, ::Type{Sym{S}}) where {T,S} = Sym{promote_type(T, S)}
