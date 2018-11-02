@@ -3,7 +3,8 @@ module Sylvia
 import Combinatorics: permutations
 import LinearAlgebra
 
-export @S_str, @assume, @assumptions, @expr, @λ, @symbols, @unassume,
+export Sym, Wild,
+    @S_str, @assume, @assumptions, @expr, @λ, @symbols, @unassume,
     assuming, commuteswith, gather, substitute, tagof,
     isfalse, istrue
 
@@ -11,6 +12,7 @@ istrue(x) = x === true
 isfalse(x) = x === false
 
 include("sym.jl")
+include("wild.jl")
 include("sig.jl")
 include("promotion.jl")
 include("expr.jl")
@@ -61,15 +63,7 @@ Base.getindex(x::Sym, val::Sym) = combine(:ref, x, val)
 Base.getindex(x::Sym, vals::Sym...) = combine(:ref, x, vals...)
 
 Base.getproperty(x::Sym, val::Symbol) = Base.getproperty(promote(x, QuoteNode(val))...)
-function Base.getproperty(x::Sym{TAG}, val::Sym{Symbol}) where TAG
-    if hashead(val, :object) && firstarg(val) isa QuoteNode && isconcretetype(TAG)
-        v = firstarg(val).value
-        if v in fieldnames(TAG)
-            return Sym{fieldtype(TAG, v)}(:(.), x, val)
-        end
-    end
-    return combine(:(.), x, val)
-end
+Base.getproperty(x::Sym, val::Sym{Symbol}) = combine(:(.), x, val)
 
 # Two-arg symmetric operators
 for op in (:(==),)
@@ -83,9 +77,6 @@ for op in (:+, :*)
     @eval @register $(:(Base.$op)) 2
     @eval $(:(Base.$op))(xs::Sym...) = apply($(:(Base.$op)), xs...)
 end
-
-Base.isequal(x::Sym, y::Sym) = x === y
-
 @register commuteswith 3
 
 ##################################################

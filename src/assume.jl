@@ -9,52 +9,28 @@ macro assumptions()
 end
 
 query(x::Sym) = query(GLOBAL_ASSUMPTION_STACK, x)
-query(as::AssumptionStack, x::Sym)::Union{typeof(x), Missing} = get(as, x, missing)
+function query(as::AssumptionStack, x::Sym)::Union{typeof(x), Missing}
+    for i in length(as.keys):-1:1
+        m = match(x, as.keys[i])
+        if ismatch(m)
+            return substitute(as.vals[i], filter(y -> !(y isa Bool), m)...)
+        end
+    end
+    return missing
+end
 
-assume(x::Sym, val) = assume(GLOBAL_ASSUMPTION_STACK, x, val)
-assume(as::AssumptionStack, x::Sym, val) = push!(as, x => val)
+assume(x::Sym{T}, val::Union{Sym{T}, T}) where {T} = assume(GLOBAL_ASSUMPTION_STACK, x, val)
+assume(as::AssumptionStack, x::Sym{T}, val::Union{Sym{T}, T}) where {T} = push!(as, x => val)
 
 const INTERCEPT_OPS = (:!, :(==), :<, :(!=))
 
 macro assume(xs...)
     ret = Expr(:block)
     for x in xs
-        if hashead(x, :call) && firstarg(x) === :(=>)
-            x, val = x.args[2:end]
-            val = esc(val)
-        else
-            val = true
-            converged = false
-            while !converged
-                x_, val_ = assume_intercept(x, val)
-                converged = x_ === x && val_ === val
-                x, val = x_, val_
-            end
-        end
-
-        if hashead(x, :call)
-            x = :(_apply($(map(esc, getargs(x))...)))
-        else
-            x = esc(x)
-        end
-
+        x, val = preprocess_assumption(x)
         push!(ret.args, :(assume($x, $val)))
     end
     return ret
-end
-
-function assume_intercept(x, val)
-    @assert hashead(x, :call) "$x"
-    if firstarg(x) in INTERCEPT_OPS
-        if firstarg(x) === :!
-            x = x.args[2]
-            val = !val
-        elseif x.args[1] === :(!=)
-            x.args[1] = :(==)
-            val = !val
-        end
-    end
-    return x, val
 end
 
 unassume(x::Sym) = unassume(GLOBAL_ASSUMPTION_STACK, x)
@@ -65,23 +41,52 @@ unassume(as::AssumptionStack, x::Sym, val) = (pop!(as, x => val); as)
 macro unassume(xs...)
     ret = Expr(:block)
     for x in xs
-        if hashead(x, :call) && firstarg(x) === :(=>)
-            x, val = x.args[2:end]
-            val = esc(val)
-        else
-            val = true
-            converged = false
-            while !converged
-                x_, val_ = assume_intercept(x, val)
-                converged = x_ === x && val_ === val
-                x, val = x_, val_
-            end
-        end
-
-        x = :(_apply($(map(esc, getargs(x))...)))
+        x, val = preprocess_assumption(x)
         push!(ret.args, :(unassume($x, $val)))
     end
     return ret
+end
+
+##################################################
+# Pre-processing
+##################################################
+
+function preprocess_assumption(x)
+    if Meta.isexpr(x, :call) && x.args[1] === :(=>)
+        x, val = x.args[2:end]
+        val = esc(val)
+    else
+        val = true
+        converged = false
+        while !converged
+            x_, val_ = assume_intercept(x, val)
+            converged = x_ === x && val_ === val
+            x, val = x_, val_
+        end
+    end
+    if Meta.isexpr(x, :call)
+        x = :(_apply($(map(esc, x.args)...)))
+    elseif Meta.isexpr(x, (:(.), :ref, Symbol("'")))
+        x = :(_combine($(esc(Meta.quot(x.head))), $(map(esc, x.args)...)))
+    else
+        x = esc(x)
+    end
+
+    return x, val
+end
+
+function assume_intercept(x, val)
+    @assert Meta.isexpr(x, :call) "$x"
+    if firstarg(x) in INTERCEPT_OPS
+        if firstarg(x) === :!
+            x = x.args[2]
+            val = !val
+        elseif x.args[1] === :(!=)
+            x.args[1] = :(==)
+            val = !val
+        end
+    end
+    return x, val
 end
 
 assuming(f, pairs::Pair{<:Sym,<:Any}...) = assuming(f, GLOBAL_ASSUMPTION_STACK, pairs...)

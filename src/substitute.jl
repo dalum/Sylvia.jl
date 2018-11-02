@@ -22,7 +22,7 @@ function substitute(x::Sym{TAG}, pairs::(Pair{Sym{T},Sym{S}} where {T,S})...; st
         if x === pat
             x = sub
         else
-            x = Sym{TAG}(gethead(x), map(arg -> substitute_one(arg, pat => sub, strict=strict), getargs(x)))
+            x = Sym{TAG}(gethead(x), map(arg -> substitute_one(arg, pat => sub, strict=strict), getargs(x))...)
         end
     end
     return x

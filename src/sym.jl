@@ -2,9 +2,6 @@ struct Sym{TAG}
     head::Symbol
     args::Tuple
 
-    function Sym{TAG}(head::Symbol, args::Tuple) where {TAG}
-        return new{TAG}(head, args)
-    end
     function Sym{TAG}(head::Symbol, @nospecialize args...) where {TAG}
         return new{TAG}(head, args)
     end
@@ -77,6 +74,13 @@ macro symbols(TAG, xs::Symbol...)
     push!(ret.args, tup)
     return ret
 end
+
+##################################################
+# Comparison
+##################################################
+
+Base.isequal(x::Sym, y::Sym) = false
+Base.isequal(x::Sym{TAG}, y::Sym{TAG}) where {TAG} = ismatch(match(x, y))
 
 ##################################################
 # Base extensions

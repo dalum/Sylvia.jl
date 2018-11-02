@@ -18,16 +18,21 @@ Base.length(d::StackedDict) = length(d.keys)
 Base.iterate(d::StackedDict) = iterate(zip(d.keys, d.vals))
 Base.iterate(d::StackedDict, x) = iterate(zip(d.keys, d.vals), x)
 
+struct __Sentinel__ end
+
 function Base.getindex(d::StackedDict, key)
-    idx = findlast(isequal(key), d.keys)
-    idx === nothing && throw(KeyError(key))
-    return d.vals[idx]
+    val = get(d, key, __Sentinel__)
+    if val === __Sentinel__
+        throw(KeyError(key))
+    else
+        return val
+    end
 end
 
 function Base.get(d::StackedDict, key, default)
     idx = findlast(isequal(key), d.keys)
     idx === nothing && return default
-    return d.vals[idx]
+    return d.keys[idx]
 end
 
 function Base.push!(d::StackedDict{T,S}, pair::Pair{<:T,<:S}) where {T,S}

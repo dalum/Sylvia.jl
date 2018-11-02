@@ -1,5 +1,5 @@
 ##################################################
-# Expression manipulations
+# Raw apply/combine
 ##################################################
 
 _unwrap(x) = x
@@ -15,6 +15,16 @@ function _apply(as::AssumptionStack, op, xs::Sym...)
     end
     return x::Sym{TAG}
 end
+
+_combine(head::Symbol, xs...) = _combine(GLOBAL_ASSUMPTION_STACK, head, xs...)
+function _combine(as::AssumptionStack, head::Symbol, xs...)
+    TAG = promote_tag(head, map(tagof, xs)...)
+    return Sym{TAG}(head, xs...)
+end
+
+##################################################
+# Querying apply/combine
+##################################################
 
 apply(op, xs::Sym...) = apply(GLOBAL_ASSUMPTION_STACK, op, xs...)
 function apply(as::AssumptionStack, op, xs::Sym...)
@@ -41,8 +51,7 @@ end
 
 combine(head::Symbol, xs...) = combine(GLOBAL_ASSUMPTION_STACK, head, xs...)
 function combine(as::AssumptionStack, head::Symbol, xs...)
-    TAG = promote_tag(head, map(tagof, xs)...)
-    x = Sym{TAG}(head, xs...)
+    x = _combine(as, head, xs...)
     q = query(as, x)
     return _unwrap(q === missing ? x : q)
 end

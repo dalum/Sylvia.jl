@@ -1,4 +1,4 @@
-function compile(x::Sym)
+function compile(x)
     modname = gensym()
     symbols = getsymbols(x)
     ops = collect(getops(x))
