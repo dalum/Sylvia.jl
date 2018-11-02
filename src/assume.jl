@@ -9,7 +9,7 @@ macro assumptions()
 end
 
 query(x::Sym) = query(GLOBAL_ASSUMPTION_STACK, x)
-query(as::AssumptionStack, x::Sym) = get(as, x, missing)
+query(as::AssumptionStack, x::Sym)::Union{typeof(x), Missing} = get(as, x, missing)
 
 assume(x::Sym, val) = assume(GLOBAL_ASSUMPTION_STACK, x, val)
 assume(as::AssumptionStack, x::Sym, val) = push!(as, x => val)

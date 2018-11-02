@@ -3,16 +3,17 @@
 ##################################################
 
 _unwrap(x) = x
-_unwrap(x::Sym) = hashead(x, :object) ? firstarg(x) : x
+_unwrap(x::Sym{TAG}) where {TAG} = hashead(x, :object) ? firstarg(x)::TAG : x
 
 _apply(op, xs::Sym...) = _apply(GLOBAL_ASSUMPTION_STACK, op, xs...)
 function _apply(as::AssumptionStack, op, xs::Sym...)
     TAG = promote_tag(:call, op, map(tagof, xs)...)
     if all(hashead(:object), xs)
-        return Sym{TAG}(op(map(firstarg, xs)...))
+        x = Sym{TAG}(op(map(firstarg, xs)...))
     else
-        return Sym{TAG}(:call, op, xs...)
+        x = Sym{TAG}(:call, op, xs...)
     end
+    return x::Sym{TAG}
 end
 
 apply(op, xs::Sym...) = apply(GLOBAL_ASSUMPTION_STACK, op, xs...)
@@ -44,13 +45,6 @@ function combine(as::AssumptionStack, head::Symbol, xs...)
     x = Sym{TAG}(head, xs...)
     q = query(as, x)
     return _unwrap(q === missing ? x : q)
-end
-
-function split(op, x::Sym)
-    if hashead(x, :call) && firstarg(x) === op
-        return tailargs(x)
-    end
-    return (x,)
 end
 
 ##################################################

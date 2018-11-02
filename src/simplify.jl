@@ -111,7 +111,7 @@ function remove_identities(op, isidentity, x::Sym{TAG}) where TAG
     if length(out_args) == 0
         push!(out_args, in_args[end])
     end
-    return apply(firstarg(x), out_args...)
+    return apply(op, out_args...)
 end
 
 """
@@ -140,7 +140,30 @@ function resolve_absorbing(op, isabsorbing, x::Sym{TAG}) where TAG
             break
         end
     end
-    return apply(firstarg(x), args...)
+    return apply(op, args...)
+end
+
+split_reapply(op, x) = x
+function split_reapply(op, x::Sym{TAG}) where TAG
+    if hashead(x, :call)
+        in_args = map(a -> split_reapply(op, a), tailargs(x))
+    else
+        return x
+    end
+
+    if firstarg(x) !== op
+        return Sym{TAG}(:call, firstarg(x), in_args...)
+    end
+
+    out_args = []
+    for arg in in_args
+        if hashead(arg, :call) && firstarg(arg) === op
+            append!(out_args, tailargs(arg))
+        else
+            push!(out_args, arg)
+        end
+    end
+    return apply(op, out_args...)
 end
 
 ##################################################
@@ -167,6 +190,8 @@ function _gather_one_iteration(x::Sym)
     x = remove_identities(+, iszero, x)
     x = remove_identities(*, isone, x)
     x = resolve_absorbing(*, iszero, x)
+    x = split_reapply(+, x)
+    x = split_reapply(*, x)
     x = normalorder(+, x)
     x = normalorder(*, x)
     x = rle(+, *, x)

@@ -1,6 +1,6 @@
 macro register(name, N::Integer)
     name = esc(name)
-    symbols = Any[gensym() for _ in 1:N]
+    symbols = Any[gensym("symvar") for _ in 1:N]
     ret = register_promote(name, symbols)
 
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
@@ -14,26 +14,9 @@ macro register(name, N::Integer)
     return ret
 end
 
-macro register_split(name, N::Integer)
-    name = esc(name)
-    symbols = Any[gensym() for _ in 1:N]
-    ret = register_promote(name, symbols)
-
-    arglist = [Expr(:(::), s, :Sym) for s in symbols]
-    splitlist = [Expr(:(...), Expr(:call, :split, name, s)) for s in symbols]
-    e = quote
-        function $name($(arglist...))
-            apply($name, $(splitlist...))
-        end
-    end
-    push!(ret.args, e)
-
-    return ret
-end
-
 macro register_symmetric(name, N::Integer)
     name = esc(name)
-    symbols = Any[gensym() for _ in 1:N]
+    symbols = Any[gensym("symvar") for _ in 1:N]
     ret = register_promote(name, symbols)
 
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
@@ -49,7 +32,7 @@ end
 
 macro register_identity(name, identity_name, N::Integer)
     name = esc(name)
-    symbols = Any[gensym() for _ in 1:N]
+    symbols = Any[gensym("symvar") for _ in 1:N]
     ret = register_promote(name, symbols)
 
     arglist = [Expr(:(::), s, :Sym) for s in symbols]

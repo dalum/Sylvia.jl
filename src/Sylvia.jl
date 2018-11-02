@@ -80,7 +80,8 @@ Base.in(x::Sym, y::Sym) = apply(in, x, y)
 
 # Multi-arg operators
 for op in (:+, :*)
-    @eval @register_split $(:(Base.$op)) 2
+    @eval @register $(:(Base.$op)) 2
+    @eval $(:(Base.$op))(xs::Sym...) = apply($(:(Base.$op)), xs...)
 end
 
 Base.isequal(x::Sym, y::Sym) = x === y
