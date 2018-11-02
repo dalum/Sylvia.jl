@@ -4,8 +4,8 @@ import Combinatorics: permutations
 import LinearAlgebra
 
 export Sym, Wild,
-    @S_str, @assume, @assumptions, @expr, @λ, @symbols, @unassume,
-    assuming, commuteswith, gather, substitute, tagof,
+    @S_str, @assume, @assuming, @assumptions, @expr, @λ, @symbols, @unassume,
+    commuteswith, gather, substitute, tagof,
     isfalse, istrue
 
 istrue(x) = x === true
