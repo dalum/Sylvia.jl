@@ -1,5 +1,6 @@
 module Sylvia
 
+import Cassette
 import Combinatorics: permutations
 import LinearAlgebra
 
@@ -13,6 +14,7 @@ isfalse(x) = x === false
 
 include("sym.jl")
 include("wild.jl")
+include("sentinel.jl")
 include("sig.jl")
 include("promotion.jl")
 include("expr.jl")
@@ -32,7 +34,7 @@ include("array.jl")
 
 # One-arg operators
 for op in (:istrue, :isfalse)
-    @eval @register $op 1
+    @eval @register_atomic $op 1
 end
 
 for op in (:+, :-, :!,
@@ -44,7 +46,7 @@ for op in (:+, :-, :!,
            :cosh, :sinh, :tanh, :sech, :csch, :coth,
            :acosh, :asinh, :atanh, :asech, :acsch, :acoth,
            :iseven, :isinf, :isnan, :isodd)
-    @eval @register $(:(Base.$op)) 1
+    @eval @register_atomic $(:(Base.$op)) 1
 end
 Base.adjoint(x::Sym) = combine(Symbol("'"), x)
 
@@ -55,7 +57,7 @@ end
 
 # Two-arg operators
 for op in (:-, :/, :\, ://, :^, :÷, :isless, :<, :&, :|)
-    @eval @register $(:(Base.$op)) 2
+    @eval @register_atomic $(:(Base.$op)) 2
 end
 Base.getindex(x::Sym, val::Symbol) = Base.getindex(promote(x, QuoteNode(val))...)
 Base.getindex(x::Sym, vals...) = Base.getindex(promote(x, map(val -> val isa Symbol ? QuoteNode(val) : val, vals)...)...)
@@ -74,7 +76,7 @@ Base.in(x::Sym, y::Sym) = apply(in, x, y)
 
 # Multi-arg operators
 for op in (:+, :*)
-    @eval @register $(:(Base.$op)) 2
+    @eval @register_atomic $(:(Base.$op)) 2
     @eval $(:(Base.$op))(xs::Sym...) = apply($(:(Base.$op)), xs...)
 end
 @register commuteswith 3
@@ -85,12 +87,12 @@ end
 
 # One-arg operators
 for op in (:norm,)
-    @eval @register $(:(LinearAlgebra.$op)) 1
+    @eval @register_atomic $(:(LinearAlgebra.$op)) 1
 end
 
 # Two-arg operators
 for op in (:dot, :cross)
-    @eval @register $(:(LinearAlgebra.$op)) 2
+    @eval @register_atomic $(:(LinearAlgebra.$op)) 2
 end
 
 

@@ -1,4 +1,7 @@
-struct Wild{TAG} end
+struct Wild{TAG}
+    sentinel::TAG
+end
+Wild{TAG}() where {TAG} = Wild{TAG}(generate_sentinel(TAG))
 
 tagof(x::Sym{Wild{TAG}}) where {TAG} = TAG
 
