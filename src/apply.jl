@@ -6,7 +6,8 @@ Cassette.@context CassetteCtx
 
 function Cassette.execute(ctx::CassetteCtx, f, args...)
     if Cassette.canoverdub(ctx, f, args...)
-        return f(ctx.metadata...)
+        newargs = (get(ctx.metadata, arg, arg) for arg in args)
+        return f(newargs...)
     else
         @warn "Could not overdub `$f` using sentinels: $(args)"
         return Cassette.fallback(ctx, f, args...)
@@ -15,8 +16,9 @@ end
 
 function diveinto(op, xs::Sym...)
     tags = map(tagof, xs)
-    ctx = CassetteCtx(metadata = xs)
-    return Cassette.overdub(ctx, invoke, op, Tuple{tags...}, map(generate_sentinel, tags)...)
+    sentinels = map(generate_sentinel, tags)
+    ctx = CassetteCtx(metadata = IdDict{Any,Sym}(key => val for (key, val) in zip(sentinels, xs)))
+    return Cassette.overdub(ctx, invoke, op, Tuple{tags...}, sentinels...)
 end
 
 ##################################################
@@ -45,13 +47,6 @@ end
 ##################################################
 # Querying apply/combine
 ##################################################
-
-apply(op, xs::Sym...) = apply(GLOBAL_ASSUMPTION_STACK, op, xs...)
-function apply(as::AssumptionStack, op, xs::Sym...)
-    x = _apply(op, xs...)
-    q = query(as, x)
-    return _unwrap(q === missing ? x : q)
-end
 
 apply(op, xs::Sym...) = apply(GLOBAL_ASSUMPTION_STACK, op, xs...)
 function apply(as::AssumptionStack, op, xs::Sym...)

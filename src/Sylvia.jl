@@ -3,9 +3,9 @@ module Sylvia
 import Cassette
 import Combinatorics: permutations
 import LinearAlgebra
+import MacroTools: striplines
 
-export Sym, Wild,
-    @S_str, @assume, @assuming, @assumptions, @expr, @λ, @symbols, @unassume,
+export @S_str, @assume, @assuming, @assumptions, @λ, @symbols, @unassume,
     commuteswith, gather, substitute, tagof,
     isfalse, istrue
 

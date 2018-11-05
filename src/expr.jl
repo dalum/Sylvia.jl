@@ -30,12 +30,16 @@ macro expr(x)
     return :(expr($(esc(x))))
 end
 
-getsymbols(x) = Set(Symbol[])
-getsymbols(x::Sym) = getsymbols(Val(gethead(x)), x)
-getsymbols(::Val, x::Sym) = mapreduce(getsymbols, union, getargs(x))
-getsymbols(::Val{:symbol}, x::Sym) = Set(Symbol[firstarg(x)])
-getsymbols(x::Tuple) = mapreduce(getsymbols, union, x)
-getsymbols(x::AbstractArray) = mapreduce(getsymbols, union, x)
+collectsort(x::Set{Sym}; kwargs...) = sort!(collect(x), by=string; kwargs...)
+
+getsymbols(x) = map(firstarg, collectsort(getsyms(x)))
+
+getsyms(x) = Set(Sym[])
+getsyms(x::Sym) = getsyms(Val(gethead(x)), x)
+getsyms(::Val, x::Sym) = mapreduce(getsyms, union, getargs(x))
+getsyms(::Val{:symbol}, x::Sym) = Set(Sym[x])
+getsyms(x::Tuple) = mapreduce(getsyms, union, x)
+getsyms(x::AbstractArray) = mapreduce(getsyms, union, x)
 
 getops(x) = Set([])
 getops(x::Sym) = getops(Val(gethead(x)), x)
@@ -44,6 +48,7 @@ getops(::Val{:call}, x::Sym) = union(Set([firstarg(x)]), mapreduce(getops, union
 getops(x::Tuple) = mapreduce(getops, union, x)
 getops(x::AbstractArray) = mapreduce(getops, union, x)
 
-macro λ(e)
-    return :(compile($(esc(e))))
+macro λ(e, locals...)
+    locals = map(x -> (x.head = :kw; x), locals)
+    return :(lower($(esc(e)), $(map(esc, locals)...)))
 end
