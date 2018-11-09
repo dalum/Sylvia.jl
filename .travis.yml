@@ -22,4 +22,4 @@ notifications:
 #  - julia -e 'Pkg.clone(pwd()); Pkg.build("Example"); Pkg.test("Example"; coverage=true)';
 
 after_success:
-- julia -e 'cd(Pkg.dir("Example")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())';
+- julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())';
