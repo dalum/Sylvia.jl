@@ -22,18 +22,18 @@ end
 
 function query(x::Sym)
     for ctx in reverse(GLOBAL_CONTEXT_STACK)
-        r = query(ctx, x)
+        ctx.resolve || return missing
+        r = _query(ctx, x)
         ismissing(r) || return r
     end
     return missing
 end
-function query(ctx::Context, x::Sym)::Union{typeof(x), Missing}
-    if ctx.resolve
-        for (key, val) in ctx
-            m = match(x, key)
-            if ismatch(m)
-                return substitute(val, filter(y -> !(y isa Bool), m)...)
-            end
+
+function _query(ctx::Context, x::Sym)::Union{typeof(x), Missing}
+    for (key, val) in ctx
+        m = match(x, key)
+        if ismatch(m)
+            return substitute(val, filter(y -> !(y isa Bool), m)...)
         end
     end
     return missing

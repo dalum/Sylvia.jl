@@ -16,7 +16,9 @@ julia> @symbols Number a b c d
 julia> a + b*c + c |> gather
 a + b * c + c
 
-julia> @assume iszero(a) isone(b);
+julia> Sylvia.@set! iszero(a) => true; # a == zero(a)
+
+julia> Sylvia.@set! isone(b) => true; # b == one(b)
 
 julia> a + b*c + c |> gather
 2c
@@ -34,7 +36,7 @@ julia> Matrix(A, 2, 2)^2
  A[1, 1] * A[1, 1] + A[1, 2] * A[2, 1]  A[1, 1] * A[1, 2] + A[1, 2] * A[2, 2]
  A[2, 1] * A[1, 1] + A[2, 2] * A[2, 1]  A[2, 1] * A[1, 2] + A[2, 2] * A[2, 2]
 
-julia> X = gather.(substitute.( # `a` and `b` are going to be optimized away, since we `@assume iszero(a) isone(b)`
+julia> X = gather.(substitute.( # `a` and `b` are going to be optimized away
            Matrix(A, 2, 2)^2,
            Ref(A[1,1] => a),
            Ref(A[1,2] => b),
@@ -45,11 +47,7 @@ julia> X = gather.(substitute.( # `a` and `b` are going to be optimized away, si
  c      d
  c * d  c + d ^ 2
 
-julia> f = @λ tr(X'X);
-
-julia> methods(f) # a function of 2 variables, `c` and `d`
-# 1 method for generic function "#5":
-[1] (::getfield(Main, Symbol("##5#6")))(c, d) in Main
+julia> f = @λ (c, d) => tr(X'X);
 
 julia> using BenchmarkTools
 

@@ -6,8 +6,8 @@ import DataStructures: OrderedDict
 import LinearAlgebra
 import MacroTools: striplines
 
-export @S_str, @λ, @symbols,
-    commuteswith, gather, substitute, tagof,
+export @S_str, @λ, @scope, @set!, @symbols, @unset!,
+    commuteswith, gather, substitute,
     isfalse, istrue
 
 istrue(x) = x === true
@@ -75,7 +75,6 @@ for op in (:+, :*)
     @eval @register_atomic $(:(Base.$op)) 2
     @eval $(:(Base.$op))(xs::Sym...) = apply($(:(Base.$op)), xs...)
 end
-@register commuteswith 3
 
 ##################################################
 # Linear algebra
@@ -109,12 +108,15 @@ Base.zero(::Type{Sym{TAG}}) where TAG = apply(zero, Sym(TAG))
 Base.one(::Type{Sym{TAG}}) where TAG = apply(one, Sym(TAG))
 Base.oneunit(::Type{Sym{TAG}}) where TAG = apply(oneunit, Sym(TAG))
 
-commuteswith(::typeof(+), x::Sym{<:Number}, y::Sym{<:Number}) = true
-commuteswith(::typeof(+), x::Sym{<:Array}, y::Sym{<:Array}) = true
+commuteswith(::Any, ::Any, ::Any) = false
+commuteswith(f, x::Sym{T}, y::Sym{S}) where {T,S} = commuteswith(f, T, S)
 
-commuteswith(::typeof(*), x::Sym{<:Number}, y::Sym{<:Number}) = true
+commuteswith(::typeof(+), ::Type{<:Number}, ::Type{<:Number}) = true
+commuteswith(::typeof(*), ::Type{<:Number}, ::Type{<:Number}) = true
 
-commuteswith(::typeof(&), x::Sym{<:Bool}, y::Sym{<:Bool}) = true
-commuteswith(::typeof(|), x::Sym{<:Bool}, y::Sym{<:Bool}) = true
+commuteswith(::typeof(+), ::Type{<:Array}, ::Type{<:Array}) = true
+
+commuteswith(::typeof(&), ::Type{<:Bool}, ::Type{<:Bool}) = true
+commuteswith(::typeof(|), ::Type{<:Bool}, ::Type{<:Bool}) = true
 
 end # module
