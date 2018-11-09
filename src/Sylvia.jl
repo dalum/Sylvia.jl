@@ -2,10 +2,11 @@ module Sylvia
 
 import Cassette
 import Combinatorics: permutations
+import DataStructures: OrderedDict
 import LinearAlgebra
 import MacroTools: striplines
 
-export @S_str, @assume, @assuming, @assumptions, @λ, @symbols, @unassume,
+export @S_str, @λ, @symbols,
     commuteswith, gather, substitute, tagof,
     isfalse, istrue
 
@@ -20,7 +21,7 @@ include("promotion.jl")
 include("expr.jl")
 include("show.jl")
 include("compile.jl")
-include("assume.jl")
+include("context.jl")
 include("register.jl")
 include("apply.jl")
 include("substitute.jl")
@@ -49,11 +50,6 @@ for op in (:+, :-, :!,
     @eval @register_atomic $(:(Base.$op)) 1
 end
 Base.adjoint(x::Sym) = combine(Symbol("'"), x)
-
-# One-arg operators with identities
-for (op, idop) in ((:isone, :one), (:iszero, :zero))
-    @eval @register_identity $(:(Base.$op)) $(:(Base.$idop)) 1
-end
 
 # Two-arg operators
 for op in (:-, :/, :\, ://, :^, :÷, :isless, :<, :&, :|)
@@ -95,6 +91,15 @@ for op in (:dot, :cross)
     @eval @register_atomic $(:(LinearAlgebra.$op)) 2
 end
 
+##################################################
+# Default rules
+##################################################
+
+let w = S"w::Wild{Any}"
+    @set! w == w => true
+    @set! zero(zero(w)) => zero(w)
+    @set! one(one(w)) => one(w)
+end
 
 ##################################################
 # Special cases

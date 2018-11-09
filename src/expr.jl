@@ -1,23 +1,30 @@
-expr(s::Sym) = (expr(Val(gethead(s)), s))
+Core.eval(m::Module, x::Sym) = Core.eval(m, expr(x))
 
-function expr(::Val{:object}, s::Sym)
-    @assert gethead(s) === :object
-    return firstarg(s)
+expr(x::Sym) = (expr(Val(gethead(x)), x))
+
+function expr(::Val{:object}, x::Sym)
+    @assert gethead(x) === :object
+    return firstarg(x)
 end
 
-function expr(::Val{:symbol}, s::Sym)
-    @assert gethead(s) === :symbol
-    return firstarg(s)
+function expr(::Val{:symbol}, x::Sym)
+    @assert gethead(x) === :symbol
+    return firstarg(x)
 end
 
-function expr(::Val{:call}, s::Sym)
-    @assert gethead(s) === :call
-    return Expr(:call, nameof(firstarg(s)), map(expr, tailargs(s))...)
+function expr(::Val{:type}, x::Sym)
+    @assert gethead(x) === :type
+    return firstarg(x)
 end
 
-function expr(::Val{head}, s::Sym) where head
-    @assert gethead(s) === head
-    return Expr(gethead(s), map(expr, getargs(s))...)
+function expr(::Val{:call}, x::Sym)
+    @assert gethead(x) === :call
+    return Expr(:call, nameof(firstarg(x)), map(expr, tailargs(x))...)
+end
+
+function expr(::Val{head}, x::Sym) where head
+    @assert gethead(x) === head
+    return Expr(gethead(x), map(expr, getargs(x))...)
 end
 
 expr(a) = a # Catch all

@@ -48,25 +48,17 @@ end
 # Querying apply/combine
 ##################################################
 
-apply(op, xs::Sym...) = apply(GLOBAL_ASSUMPTION_STACK, op, xs...)
-function apply(as::AssumptionStack, op, xs::Sym...)
+function apply(op, xs::Sym...)
     x = _apply(op, xs...)
-    q = query(as, x)
+    q = query(x)
     return _unwrap(q === missing ? x : q)
 end
 
-apply_identity(op, idop, xs::Sym...) = apply_symmetric(GLOBAL_ASSUMPTION_STACK, op, idop, xs...)
-function apply_identity(as::AssumptionStack, op, idop, x::Sym)
-    hashead(x, :call) && firstarg(x) === idop && return true
-    return apply(as, op, x)
-end
-
-apply_symmetric(op, xs::Sym...) = apply_symmetric(GLOBAL_ASSUMPTION_STACK, op, xs...)
-function apply_symmetric(as::AssumptionStack, op, xs::Sym...)
+function apply_symmetric(op, xs::Sym...)
     x0 = nothing
     for ys in permutations(xs)
         x = _apply(op, ys...)
-        q = query(as, x)
+        q = query(x)
         if q !== missing
             x0 = q
             break
@@ -77,10 +69,9 @@ function apply_symmetric(as::AssumptionStack, op, xs::Sym...)
     return _unwrap(x0)
 end
 
-combine(head::Symbol, xs...) = combine(GLOBAL_ASSUMPTION_STACK, head, xs...)
-function combine(as::AssumptionStack, head::Symbol, xs...)
+function combine(head::Symbol, xs...)
     x = _combine(head, xs...)
-    q = query(as, x)
+    q = query(x)
     return _unwrap(q === missing ? x : q)
 end
 
