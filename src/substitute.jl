@@ -19,11 +19,20 @@ function substitute(x::Sym{TAG}, pairs::(Pair{Sym{T},Sym{S}} where {T,S})...; st
         if strict && !(tagof(sub) <: tagof(pat))
             error("strict mode: cannot substitute: $pat => $sub: $(tagof(sub)) is not a subtype of $(tagof(pat))")
         end
+
         if x === pat
             x = sub
+        elseif hashead(x, :symbol) || hashead(x, :object) || hashead(x, :type)
+            nothing
         else
-            x = Sym{TAG}(gethead(x), map(arg -> substitute_one(arg, pat => sub, strict=strict), getargs(x))...)
+            args = map(arg -> substitute_one(arg, pat => sub, strict=strict), getargs(x))
+            if hashead(x, :call)
+                x = apply(args...)
+            else
+                x = combine(gethead(x), args...)
+            end
         end
+
     end
     return x
 end

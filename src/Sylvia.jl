@@ -15,8 +15,7 @@ isfalse(x) = x === false
 
 include("sym.jl")
 include("wild.jl")
-include("sentinel.jl")
-include("sig.jl")
+include("protoinstance.jl")
 include("promotion.jl")
 include("expr.jl")
 include("show.jl")

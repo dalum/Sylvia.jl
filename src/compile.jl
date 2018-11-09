@@ -1,7 +1,7 @@
 pairs_to_assignments(x) = (:(const $key = $val) for (key, val) in x)
 
-lower_expr(fn::Symbol, xs::Sym...; kwargs...) = lower_expr(fn, map(x -> Tuple(collectsort(getsyms(x))) => x, xs)...; kwargs...)
-function lower_expr(fn::Symbol, xs::Pair{<:Tuple,<:Sym}...; kwargs...)
+lower_expr(fn::Symbol, xs...; kwargs...) = lower_expr(fn, map(x -> Tuple(collectsort(getsyms(x))) => x, xs)...; kwargs...)
+function lower_expr(fn::Symbol, xs::Pair{<:Tuple,<:Any}...; kwargs...)
     exprs = mapreduce(x -> x.args, vcat, map(x -> lower_one_expr(fn, x[1], x[2]), xs))
     ex = Expr(:toplevel,
               :(using Sylvia: @register),
@@ -10,8 +10,8 @@ function lower_expr(fn::Symbol, xs::Pair{<:Tuple,<:Sym}...; kwargs...)
     return striplines(ex)
 end
 
-lower_one_expr(fn::Symbol, x::Sym) = lower_one_expr(fn, collectsort(getsyms(x)), x)
-function lower_one_expr(fn::Symbol, syms::Tuple, x::Sym)
+lower_one_expr(fn::Symbol, x) = lower_one_expr(fn, collectsort(getsyms(x)), x)
+function lower_one_expr(fn::Symbol, syms::Tuple, x)
     types = map(tagof, syms)
     symbols = map(firstarg, syms)
     signature = [Expr(:(::), s, T) for (s, T) in zip(symbols, types)]

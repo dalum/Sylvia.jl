@@ -16,8 +16,8 @@ end
 
 function diveinto(op, xs::Sym...)
     tags = map(tagof, xs)
-    sentinels = map(generate_sentinel, tags)
-    ctx = CassetteCtx(metadata = IdDict{Any,Sym}(key => val for (key, val) in zip(sentinels, xs)))
+    ps = map(oftype, tags)
+    ctx = CassetteCtx(metadata = IdDict{Any,Sym}(key => val for (key, val) in zip(ps, xs)))
     return Cassette.overdub(ctx, invoke, op, Tuple{tags...}, sentinels...)
 end
 
