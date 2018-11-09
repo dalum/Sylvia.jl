@@ -52,3 +52,8 @@ macro λ(e, locals...)
     locals = map(x -> (x.head = :kw; x), locals)
     return :(lower($(esc(e)), $(map(esc, locals)...)))
 end
+
+# For when `@locals` gets merged into master:
+# macro λ(e)
+#     return :(lower($(esc(e)); Base.@locals()...))
+# end
