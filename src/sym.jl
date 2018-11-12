@@ -38,7 +38,8 @@ function Sym{T}(::Val{:(::)}, e::Expr, m::Module) where {T}
     return Sym{TAG}(arg)
 end
 
-(f::Sym{<:Function})(args...) = apply(f, args...)
+(f::Sym)(args...) = apply(f, map(arg -> convert(Sym, arg), args)...)
+(f::Sym)(args::Sym...) = apply(f, args...)
 
 symignore(x) = false
 symignore(::LineNumberNode) = true

@@ -1,4 +1,4 @@
-function Base.show(io::IO, x::Sym{TAG}) where TAG
+function Base.show(io::IO, x::T) where {T <: Sym}
     e = expr(x)
-    print(io, string(e))
+    print(io, sprint(print, e, context=io))
 end

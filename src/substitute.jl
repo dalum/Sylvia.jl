@@ -38,9 +38,9 @@ function substitute(x::Sym, pairs::Pair{<:Sym,<:Sym}...; strict=false)
         elseif !isatomic(x)
             args = map(arg -> substitute_one(arg, pat => sub, strict=strict), getargs(x))
             if hashead(x, :call)
-                x = apply(args...)
+                x = query!(_apply(args...))
             else
-                x = combine(gethead(x), args...)
+                x = query!(_combine(gethead(x), args...))
             end
         end
 

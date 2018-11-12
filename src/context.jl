@@ -1,8 +1,10 @@
 mutable struct Context <: AbstractDict{Sym,Sym}
+    parent::Union{Context,Nothing}
     data::OrderedDict{Sym,Sym}
     resolve::Bool
 end
-Context(pairs::Pair{<:Sym,<:Sym}...) = Context(OrderedDict(pairs...), true)
+Context(parent::Union{Context,Nothing}, pairs::Pair{<:Sym,<:Sym}...) = Context(parent, OrderedDict(pairs...), true)
+Context(pairs::Pair{<:Sym,<:Sym}...) = Context(nothing, pairs...)
 
 Base.length(ctx::Context) = length(ctx.data)
 Base.iterate(ctx::Context) = iterate(ctx.data)
@@ -21,27 +23,24 @@ function Base.iterate(r::Base.Iterators.Reverse{Context}, x)
     return (res[1], x + 1)
 end
 
-const GLOBAL_CONTEXT_STACK = Context[Context()]
+const GLOBAL_CONTEXT = Context()
+const ACTIVE_CONTEXT = Ref(GLOBAL_CONTEXT)
 
-macro __CONTEXT__()
-    return :(GLOBAL_CONTEXT_STACK[end])
+macro __context__()
+    return :(ACTIVE_CONTEXT[])
 end
 
-function query!(x::Sym)
-    for ctx in reverse(GLOBAL_CONTEXT_STACK)
-        ctx.resolve || return x
-        _query!(x, ctx)
-    end
-    return x
-end
+function query!(x::Sym, ctx=ACTIVE_CONTEXT[])
+    ctx.resolve || return x
 
-function _query!(x::Sym, ctx::Context)
     for (key, val) in Iterators.reverse(ctx)
         m = match(x, key)
         if ismatch(m)
             substitute!(x, val, filter(y -> !(y isa Bool), m)...)
         end
     end
+
+    ctx.parent === nothing || query!(x, ctx.parent)
     return x
 end
 
@@ -52,39 +51,66 @@ set!(ctx::Context, x::SymOrWild{T}, val::SymOrWild{<:T}) where {T} = setindex!(c
 macro set!(ex::Expr)
     @assert Meta.isexpr(ex, :call) && ex.args[1] === :(=>)
     x, val = ex.args[2:end]
-    return quote
-        if @__CONTEXT__().resolve
-            @__CONTEXT__().resolve = false
-            set!(@__CONTEXT__, $(esc(x)), $(esc(val)))
-            @__CONTEXT__().resolve = true
-        else
-            set!(@__CONTEXT__, $(esc(x)), $(esc(val)))
+    expr = :(set!(@__context__, $(esc(x)), $(esc(val))))
+
+    if @__context__().resolve
+        __return__ = gensym("return")
+        return quote
+            @__context__().resolve = false
+            $__return__ = $expr
+            @__context__().resolve = true
+            $__return__
         end
     end
+    return expr
 end
 
 unset!(ctx::Context, x) = delete!(ctx, Sym(x))
 unset!(ctx::Context, x::Sym) = delete!(ctx, x)
 macro unset!(x)
-    __return__ = gensym("return")
-    return quote
-        if @__CONTEXT__().resolve
-            @__CONTEXT__().resolve = false
-            $__return__ = unset!(@__CONTEXT__, $(esc(x)))
-            @__CONTEXT__().resolve = true
+    expr = :(unset!(@__context__, $(esc(x))))
+
+    if @__context__().resolve
+        __return__ = gensym("return")
+        return quote
+            @__context__().resolve = false
+            $__return__ = $expr
+            @__context__().resolve = true
             $__return__
-        else
-            unset!(@__CONTEXT__, $(esc(x)))
         end
     end
+    return expr
 end
 
 macro scope(ex)
-    retsym = gensym("return")
-    return quote
-        push!(GLOBAL_CONTEXT_STACK, Context())
-        $retsym = $(esc(ex))
-        pop!(GLOBAL_CONTEXT_STACK)
-        $retsym
+    return scope(:nothing, ex)
+end
+
+macro scope(option::Symbol, ex)
+    return scope(option, ex)
+end
+
+function scope(option::Symbol, ex)
+    __return__ = gensym("return")
+    __context__ = gensym("context")
+    expr = quote
+        let
+            $__context__ = Context(@__context__)
+            ACTIVE_CONTEXT[] = $__context__
+            $__return__ = $(esc(ex))
+            ACTIVE_CONTEXT[] = $__context__.parent
+            $__return__
+        end
     end
+
+    if @__context__().resolve && option === :suspend
+        __return__ = gensym("return")
+        return quote
+            @__context__().resolve = false
+            $__return__ = $expr
+            @__context__().resolve = true
+            $__return__
+        end
+    end
+    return expr
 end

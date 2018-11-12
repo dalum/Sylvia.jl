@@ -25,14 +25,14 @@ end
 # Raw apply/combine
 ##################################################
 
-_unwrap(x) = x
-_unwrap(x::Sym{TAG}) where {TAG} = hashead(x, :object) ? firstarg(x) : x
+unwrap(x) = x
+unwrap(x::Sym{TAG}) where {TAG} = hashead(x, :object) ? firstarg(x) : x
 
 _apply(args...) = _apply(map(arg -> convert(Sym, arg), args)...)
 function _apply(op::Sym, xs::Sym...)
     tags = map(tagof, xs)
     TAG = promote_tag(:call, op, tags...)
-    if all(hashead(:object), xs)
+    if hashead(op, :function) && all(hashead(:object), xs)
         x = Sym{TAG}(firstarg(op)(map(firstarg, xs)...))
     else
         x = Sym{TAG}(:call, op, xs...)
@@ -49,5 +49,5 @@ end
 # Querying apply/combine
 ##################################################
 
-apply(op, xs...) = _unwrap(query!(_apply(op, xs...)))
-combine(head::Symbol, xs...) = _unwrap(query!(_combine(head, xs...)))
+apply(op, xs...) = unwrap(query!(_apply(op, xs...)))
+combine(head::Symbol, xs...) = unwrap(query!(_combine(head, xs...)))

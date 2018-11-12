@@ -13,3 +13,7 @@ let w = S"w::Wild{Bool}"
     @set! (|)(w) => w
     @set! (&)(w) => w
 end
+
+# Add a new context to the stack for user rules
+const USER_CONTEXT = Context(GLOBAL_CONTEXT)
+ACTIVE_CONTEXT[] = USER_CONTEXT

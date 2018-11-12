@@ -7,7 +7,7 @@ import LinearAlgebra
 import MacroTools: striplines
 
 export @S_str, @λ, @scope, @set!, @symbols, @unset!,
-    commuteswith, gather, substitute,
+    commuteswith, gather, substitute, tagof,
     isfalse, istrue
 
 include("sym.jl")

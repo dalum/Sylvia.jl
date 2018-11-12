@@ -1,5 +1,5 @@
-using Test
 using Sylvia
+using Test
 
 @symbols Number a b c d
 @symbols Bool x y z
@@ -71,8 +71,8 @@ end
 
 @testset "function generation" begin
     X = randn(2, 2)
-    f = @λ a + b + c
-    g = @λ Matrix(A, 2, 2)^2
+    f = @λ (a, b, c) => a + b + c
+    g = @λ (A,) => Matrix(A, 2, 2)^2
     @test f(1, 2, 3) == 6
     @test g(X) ≈ X^2
 end
