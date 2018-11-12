@@ -9,7 +9,6 @@ function Cassette.execute(ctx::CassetteCtx, f, args...)
         newargs = (get(ctx.metadata, arg, arg) for arg in args)
         return f(newargs...)
     else
-        @warn "Could not overdub `$f` using protoinstances: $(args)"
         return Cassette.fallback(ctx, f, args...)
     end
 end

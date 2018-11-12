@@ -85,7 +85,7 @@ remove_identities(x::Sym, op::Sym, isidentity::Sym) = remove_identities!(deepcop
 remove_identities!(x, op, isidentity) = x
 function remove_identities!(x::Sym, op::Sym, isidentity::Sym)
     isatomic(x) && return x
-    map(a -> remove_identities!(op, isidentity, a), getargs(x))
+    map(a -> remove_identities!(a, op, isidentity), getargs(x))
     (hashead(x, :call) && (firstarg(x) == op) === true) || return x
     args = getargs(x)
     deleteat!(

@@ -4,7 +4,7 @@ mutable struct Context <: AbstractDict{Sym,Sym}
     resolve::Bool
 end
 Context(parent::Union{Context,Nothing}, pairs::Pair{<:Sym,<:Sym}...) = Context(parent, OrderedDict(pairs...), true)
-Context(pairs::Pair{<:Sym,<:Sym}...) = Context(nothing, pairs...)
+Context(pairs::Pair{<:Sym,<:Sym}...) = Context(GLOBAL_CONTEXT, pairs...)
 
 Base.length(ctx::Context) = length(ctx.data)
 Base.iterate(ctx::Context) = iterate(ctx.data)
@@ -23,7 +23,7 @@ function Base.iterate(r::Base.Iterators.Reverse{Context}, x)
     return (res[1], x + 1)
 end
 
-const GLOBAL_CONTEXT = Context()
+const GLOBAL_CONTEXT = Context(nothing)
 const ACTIVE_CONTEXT = Ref(GLOBAL_CONTEXT)
 
 macro __context__()
@@ -48,9 +48,9 @@ set!(ctx::Context, x, val) = set!(ctx, Sym(x), Sym(val))
 set!(ctx::Context, x, val::Sym) = set!(ctx, Sym(x), val)
 set!(ctx::Context, x::Sym, val) = set!(ctx, x, Sym(val))
 set!(ctx::Context, x::SymOrWild{T}, val::SymOrWild{<:T}) where {T} = setindex!(ctx, val, x)
-macro set!(ex::Expr)
-    @assert Meta.isexpr(ex, :call) && ex.args[1] === :(=>)
-    x, val = ex.args[2:end]
+macro !(ex::Expr)
+    @assert Meta.isexpr(ex, :(=))
+    x, val = ex.args
     expr = :(set!(@__context__, $(esc(x)), $(esc(val))))
 
     if @__context__().resolve
@@ -94,13 +94,10 @@ function scope(option::Symbol, ex)
     __return__ = gensym("return")
     __context__ = gensym("context")
     expr = quote
-        let
-            $__context__ = Context(@__context__)
-            ACTIVE_CONTEXT[] = $__context__
-            $__return__ = $(esc(ex))
-            ACTIVE_CONTEXT[] = $__context__.parent
-            $__return__
-        end
+        ACTIVE_CONTEXT[] = Context(@__context__)
+        $__return__ = $(esc(ex))
+        ACTIVE_CONTEXT[] = ACTIVE_CONTEXT[].parent
+        $__return__
     end
 
     if @__context__().resolve && option === :suspend

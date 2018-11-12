@@ -34,7 +34,5 @@ function lower_one_expr(fn::Symbol, syms::Tuple, x)
     return striplines(ex)
 end
 
-baremodule Anon end
-
 lower(xs...; kwargs...) = lower(gensym("f"), xs...; kwargs...)
 lower(fn::Symbol, xs...; kwargs...) = Core.eval(Module(:__anon__, true), lower_expr(fn, xs...; kwargs...))

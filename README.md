@@ -16,9 +16,9 @@ julia> @symbols Number a b c d
 julia> a + b*c + c |> gather
 a + b * c + c
 
-julia> Sylvia.@set! iszero(a) => true; # a == zero(a)
+julia> @! iszero(a) = true; # a == zero(a)
 
-julia> Sylvia.@set! isone(b) => true; # b == one(b)
+julia> @! isone(b) = true; # b == one(b)
 
 julia> a + b*c + c |> gather
 2c
@@ -49,9 +49,21 @@ julia> X = gather.(substitute.( # `a` and `b` are going to be optimized away
 
 julia> f = @λ (c, d) => tr(X'X);
 
+julia> f(c, d)
+(0 + (c' * c + (c * d)' * (c * d))) + (d' * d + (c + d ^ 2)' * (c + d ^ 2))
+
 julia> using BenchmarkTools
 
-julia> @btime f(1, 2)
-  13.673 ns (0 allocations: 0 bytes)
+julia> @btime $(f)(1, 2)
+  0.026 ns (0 allocations: 0 bytes)
+34
+
+julia> using StaticArrays
+
+julia> g(c, d) = (X = SMatrix{2,2}(0, 1, c, d)^2; tr(X'X))
+g (generic function with 2 methods)
+
+julia> @btime $(g)(1, 2)
+  5.738 ns (0 allocations: 0 bytes)
 34
 ```

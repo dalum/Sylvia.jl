@@ -18,10 +18,10 @@ end
 
 @testset "contexts" begin
     @scope begin
-        @set! iszero(a) => true
-        @set! a in b => true
+        @! iszero(a) = true
+        @! a in b = true
         @scope begin
-            @set! a in b => false
+            @! a in b = false
             @test iszero(a)
             @test !(a in b)
         end
@@ -44,10 +44,15 @@ end
 
 @testset "simplification" begin
     @test gather(a + b + c + d + a + b + c + d) == 2a + 2b + 2c + 2d
+    @scope begin
+        @! iszero(a) = true
+        @! isone(b) = true
+        @test gather(a + b*c + c) == 2c
+    end
 
     @scope begin
-        @set! istrue(x) => true
-        @set! isfalse(y) => true
+        @! istrue(x) = true
+        @! isfalse(y) = true
 
         @test gather(x & y) == y
         @test gather(x | y) == x

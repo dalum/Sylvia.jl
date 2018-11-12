@@ -6,7 +6,7 @@ import DataStructures: OrderedDict
 import LinearAlgebra
 import MacroTools: striplines
 
-export @S_str, @λ, @scope, @set!, @symbols, @unset!,
+export @S_str, @λ, @scope, @!, @symbols, @unset!,
     commuteswith, gather, substitute, tagof,
     isfalse, istrue
 
