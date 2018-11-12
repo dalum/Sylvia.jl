@@ -6,7 +6,8 @@ using Sylvia
 @symbols Matrix{Float64} A B
 
 @testset "identities" begin
-    @test a + b === S"a"Number + S"b"Number === S"a::Number + b::Number"Number
+    @test a == S"a"Number == S"a::Number"
+    @test a + b == S"a"Number + S"b"Number == S"a::Number + b::Number"
     @test iszero(zero(a))
     @test iszero(zero(typeof(a)))
     @test isone(one(a))
@@ -40,16 +41,16 @@ end
 end
 
 @testset "simplification" begin
-    @test gather(a + b + c + d + a + b + c + d) === 2a + 2b + 2c + 2d
+    @test gather(a + b + c + d + a + b + c + d) == 2a + 2b + 2c + 2d
 
     @scope begin
         @set! istrue(x) => true
         @set! isfalse(y) => true
 
-        @test gather(x & y) === y
-        @test gather(x | y) === x
-        @test gather(x | y | z) === x
-        @test gather((x | y) & z) === z
+        @test gather(x & y) == y
+        @test gather(x | y) == x
+        @test gather(x | y | z) == x
+        @test gather((x | y) & z) == z
     end
 end
 
@@ -62,14 +63,14 @@ end
 end
 
 @testset "arrays" begin
-    @test all(Vector(A, 2) .=== [A[1], A[2]])
-    @test all(Matrix(A, 2, 2) .=== [A[1,1] A[1,2]; A[2,1] A[2,2]])
+    @test all(Vector(A, 2) .== [A[1], A[2]])
+    @test all(Matrix(A, 2, 2) .== [A[1,1] A[1,2]; A[2,1] A[2,2]])
 end
 
 @testset "function generation" begin
-    X = rand(2, 2)
+    X = randn(2, 2)
     f = @λ a + b + c
     g = @λ Matrix(A, 2, 2)^2
     @test f(1, 2, 3) == 6
-    @test g(X) == X^2
+    @test g(X) ≈ X^2
 end

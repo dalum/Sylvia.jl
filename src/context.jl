@@ -1,18 +1,25 @@
-mutable struct Context <: AbstractDict{Sym,Any}
-    data::OrderedDict{Sym,Any}
+mutable struct Context <: AbstractDict{Sym,Sym}
+    data::OrderedDict{Sym,Sym}
     resolve::Bool
 end
-Context(pairs::Pair{<:Sym,<:Any}...) = Context(OrderedDict(pairs...), true)
+Context(pairs::Pair{<:Sym,<:Sym}...) = Context(OrderedDict(pairs...), true)
 
 Base.length(ctx::Context) = length(ctx.data)
-Base.iterate(ctx::Context) = length(ctx) > 0 ? (keys(ctx)[1] => values(ctx)[1], 2) : nothing
-Base.iterate(ctx::Context, x) = x <= length(ctx) ? (keys(ctx)[x] => values(ctx)[x], x + 1) : nothing
+Base.iterate(ctx::Context) = iterate(ctx.data)
+Base.iterate(ctx::Context, x) = iterate(ctx.data, x)
 Base.getindex(ctx::Context, key) = getindex(ctx.data, key)
 Base.setindex!(ctx::Context, val, key) = setindex!(ctx.data, val, key)
 Base.delete!(ctx::Context, key) = delete!(ctx.data, key)
 
-Base.keys(ctx::Context) = reverse(collect(keys(ctx.data)))
-Base.values(ctx::Context) = reverse(collect(values(ctx.data)))
+Base.iterate(r::Base.Iterators.Reverse{Context}) = Base.iterate(r::Base.Iterators.Reverse{Context}, 1)
+function Base.iterate(r::Base.Iterators.Reverse{Context}, x)
+    ctx = r.itr
+    l = length(ctx)
+    l + 1 - x > 0 || return nothing
+    res = iterate(ctx, l + 1 - x)
+    res === nothing && return nothing
+    return (res[1], x + 1)
+end
 
 const GLOBAL_CONTEXT_STACK = Context[Context()]
 
@@ -20,42 +27,53 @@ macro __CONTEXT__()
     return :(GLOBAL_CONTEXT_STACK[end])
 end
 
-function query(x::Sym)
+function query!(x::Sym)
     for ctx in reverse(GLOBAL_CONTEXT_STACK)
-        ctx.resolve || return missing
-        r = _query(ctx, x)
-        ismissing(r) || return r
+        ctx.resolve || return x
+        _query!(x, ctx)
     end
-    return missing
+    return x
 end
 
-function _query(ctx::Context, x::Sym)::Union{typeof(x), Missing}
-    for (key, val) in ctx
+function _query!(x::Sym, ctx::Context)
+    for (key, val) in Iterators.reverse(ctx)
         m = match(x, key)
         if ismatch(m)
-            return substitute(val, filter(y -> !(y isa Bool), m)...)
+            substitute!(x, val, filter(y -> !(y isa Bool), m)...)
         end
     end
-    return missing
+    return x
 end
 
-set!(ctx::Context, x::Sym{T}, val::Union{Sym{T}, T}) where {T} = setindex!(ctx, val, x)
+set!(ctx::Context, x, val) = set!(ctx, Sym(x), Sym(val))
+set!(ctx::Context, x, val::Sym) = set!(ctx, Sym(x), val)
+set!(ctx::Context, x::Sym, val) = set!(ctx, x, Sym(val))
+set!(ctx::Context, x::SymOrWild{T}, val::SymOrWild{<:T}) where {T} = setindex!(ctx, val, x)
 macro set!(ex::Expr)
     @assert Meta.isexpr(ex, :call) && ex.args[1] === :(=>)
     x, val = ex.args[2:end]
     return quote
-        @__CONTEXT__().resolve = false
-        set!(@__CONTEXT__, $(esc(x)), $(esc(val)))
-        @__CONTEXT__().resolve = true
+        if @__CONTEXT__().resolve
+            @__CONTEXT__().resolve = false
+            set!(@__CONTEXT__, $(esc(x)), $(esc(val)))
+            @__CONTEXT__().resolve = true
+        else
+            set!(@__CONTEXT__, $(esc(x)), $(esc(val)))
+        end
     end
 end
 
+unset!(ctx::Context, x) = delete!(ctx, Sym(x))
 unset!(ctx::Context, x::Sym) = delete!(ctx, x)
 macro unset!(x)
     return quote
-        @__CONTEXT__().resolve = false
-        unset!(@__CONTEXT__, $(esc(x)))
-        @__CONTEXT__().resolve = true
+        if @__CONTEXT__().resolve
+            @__CONTEXT__().resolve = false
+            unset!(@__CONTEXT__, $(esc(x)))
+            @__CONTEXT__().resolve = true
+        else
+            unset!(@__CONTEXT__, $(esc(x)))
+        end
     end
 end
 

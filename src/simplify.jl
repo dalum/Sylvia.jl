@@ -27,21 +27,15 @@ end
 Sort by commuting adjacent elements.
 
 """
-normalorder(op, x) = x
-function normalorder(op, x::Sym{TAG}) where {TAG}
-    if hashead(x, :call)
-        args = map(arg -> normalorder(op, arg), tailargs(x))
-    else
-        return x
-    end
+normalorder(x::Sym, op::Sym) = normalorder!(deepcopy(x), op)
 
-    if firstarg(x) !== op
-        return Sym{TAG}(:call, firstarg(x), args...)
-    end
-
-    args = collect(args)
-    sort!(args, alg=InsertionSort, lt=(a, b) -> _commute_lt(op, a, b))
-    return apply(op, args...)
+normalorder!(x, op) = x
+function normalorder!(x::Sym, op::Sym)
+    isatomic(x) && return x
+    map(a -> normalorder!(a, op), getargs(x))
+    (hashead(x, :call) && (firstarg(x) == op) === true) || return x
+    sort!(getargs(x), alg=InsertionSort, lt=(a, b) -> _commute_lt(op, a, b))
+    return x
 end
 function _commute_lt(op, a, b)
     return (commuteswith(op, a, b) === true || commuteswith(op, b, a) === true) && isless(string(a), string(b))
@@ -53,117 +47,95 @@ end
 Run length encode.
 
 """
-rle(op, enc_op, x) = x
-function rle(op, enc_op, x::Sym{TAG}) where {TAG}
-    if hashead(x, :call)
-        in_args = map(arg -> rle(op, enc_op, arg), tailargs(x))
-    else
-        return x
-    end
+rle(x::Sym, op::Sym, enc_op::Sym) = rle!(deepcopy(x), op, enc_op)
 
-    if firstarg(x) !== op
-        return Sym{TAG}(:call, firstarg(x), in_args...)
-    end
+rle!(x, op, enc_op) = x
+function rle!(x::Sym, op::Sym, enc_op::Sym)
+    isatomic(x) && return x
+    map(a -> rle!(a, op, enc_op), getargs(x))
+    (hashead(x, :call) && (firstarg(x) == op) === true) || return x
 
-    N = length(in_args)
-    out_args = []
+    N = length(getargs(x))
+    args = []
     n = 1
     for i in 1:N
-        if i < N && in_args[i] === in_args[i+1]
+        if i < N && (getargs(x, i) == getargs(x, i + 1)) === true
             n += 1
         else
             if n > 1
-                push!(out_args, enc_op(in_args[i], n))
+                push!(args, firstarg(enc_op)(getargs(x, i), n))
             else
-                push!(out_args, in_args[i])
+                push!(args, getargs(x, i))
             end
             n = 1
         end
     end
-    return apply(op, out_args...)
+    return setargs!(x, args)
 end
 
 """
-    remove_identities(op, isidentity, x)
+    remove_identities(x, op, isidentity)
 
 Remove identities of the operator `op`.  `isidentity` is a function that
 returns true, if the element is an identity element of `op`.
 
 """
-remove_identities(op, isidentity, x) = x
-function remove_identities(op, isidentity, x::Sym{TAG}) where TAG
-    if hashead(x, :call)
-        in_args = map(a -> remove_identities(op, isidentity, a), tailargs(x))
-    else
-        return x
-    end
+remove_identities(x::Sym, op::Sym, isidentity::Sym) = remove_identities!(deepcopy(x), op, isidentity)
 
-    if firstarg(x) !== op
-        return Sym{TAG}(:call, firstarg(x), in_args...)
-    end
-
-    out_args = []
-    for arg in in_args
-        if isidentity(arg) !== true
-            push!(out_args, arg)
-        end
-    end
-    if length(out_args) == 0
-        push!(out_args, in_args[end])
-    end
-    return apply(op, out_args...)
+remove_identities!(x, op, isidentity) = x
+function remove_identities!(x::Sym, op::Sym, isidentity::Sym)
+    isatomic(x) && return x
+    map(a -> remove_identities!(op, isidentity, a), getargs(x))
+    (hashead(x, :call) && (firstarg(x) == op) === true) || return x
+    args = getargs(x)
+    deleteat!(
+        args,
+        findall(
+            arg -> firstarg(isidentity)(arg) === true,
+            args
+        )
+    )
+    return query!(x)
 end
 
 """
-    resolve_absorbing(op, isabsorbing, x)
+    resolve_absorbing(x, op, isabsorbing)
 
 Resolves absorbing elements of the operator `op`.  `isabsorbing` is a
 function that returns true, if the element is an absorbing element of
 `op`
 
 """
-resolve_absorbing(op, isabsorbing, x) = x
-function resolve_absorbing(op, isabsorbing, x::Sym{TAG}) where TAG
-    if hashead(x, :call)
-        args = map(a -> resolve_absorbing(op, isabsorbing, a), tailargs(x))
-    else
-        return x
-    end
+resolve_absorbing(x::Sym, op::Sym, isabsorbing::Sym) = resolve_absorbing!(deepcopy(x), op, isabsorbing)
 
-    if firstarg(x) !== op
-        return Sym{TAG}(:call, firstarg(x), args...)
-    end
-
-    for arg in args
-        if isabsorbing(arg) === true
-            args = [arg]
-            break
-        end
-    end
-    return apply(op, args...)
+resolve_absorbing!(x, op, isabsorbing) = x
+function resolve_absorbing!(x::Sym, op::Sym, isabsorbing::Sym)
+    isatomic(x) && return x
+    map(a -> resolve_absorbing!(a, op, isabsorbing), getargs(x))
+    (hashead(x, :call) && (firstarg(x) == op) === true) || return x
+    args = getargs(x)
+    absorber_index = findfirst(arg -> firstarg(isabsorbing)(arg) === true, args)
+    absorber_index === nothing && return x
+    setargs!(x, Any[firstarg(x), getargs(x, absorber_index)])
+    return query!(x)
 end
 
-split_reapply(op, x) = x
-function split_reapply(op, x::Sym{TAG}) where TAG
-    if hashead(x, :call)
-        in_args = map(a -> split_reapply(op, a), tailargs(x))
-    else
-        return x
-    end
+split_reapply(x::Sym, op::Sym) = split_reapply!(deepcopy(x), op)
 
-    if firstarg(x) !== op
-        return Sym{TAG}(:call, firstarg(x), in_args...)
-    end
-
-    out_args = []
-    for arg in in_args
-        if hashead(arg, :call) && firstarg(arg) === op
-            append!(out_args, tailargs(arg))
+split_reapply!(x, op) = x
+function split_reapply!(x::Sym{TAG}, op::Sym) where TAG
+    isatomic(x) && return x
+    map(a -> split_reapply!(a, op), getargs(x))
+    (hashead(x, :call) && (firstarg(x) == op) === true) || return x
+    args = []
+    for arg in getargs(x)
+        if hashead(arg, :call) && (firstarg(arg) == op) === true
+            append!(args, tailargs(arg))
         else
-            push!(out_args, arg)
+            push!(args, arg)
         end
     end
-    return apply(op, out_args...)
+    return setargs!(x, args)
 end
 
 ##################################################
@@ -172,11 +144,12 @@ end
 
 const MAX_GATHER_ITERATIONS = 10
 
-function gather(x)
+gather(x) = gather!(deepcopy(x))
+function gather!(x)
     x_ = x
     for _ in 1:MAX_GATHER_ITERATIONS
-        x = _gather_one_iteration(x_)
-        if x === x_
+        x = _gather_one_iteration!(x_)
+        if x == x_ === true
             break
         else
             x_ = x
@@ -185,24 +158,24 @@ function gather(x)
     return x
 end
 
-_gather_one_iteration(x) = x
-function _gather_one_iteration(x::Sym)
-    x = remove_identities(+, iszero, x)
-    x = remove_identities(*, isone, x)
-    x = resolve_absorbing(*, iszero, x)
-    x = split_reapply(+, x)
-    x = split_reapply(*, x)
-    x = normalorder(+, x)
-    x = normalorder(*, x)
-    x = rle(+, *, x)
-    x = rle(*, ^, x)
+_gather_one_iteration!(x) = x
+function _gather_one_iteration!(x::Sym)
+    remove_identities!(x, Sym(+), Sym(iszero))
+    remove_identities!(x, Sym(*), Sym(isone))
+    resolve_absorbing!(x, Sym(*), Sym(iszero))
+    split_reapply!(x, Sym(+))
+    split_reapply!(x, Sym(*))
+    normalorder!(x, Sym(+))
+    normalorder!(x, Sym(*))
+    rle!(x, Sym(+), Sym(*))
+    rle!(x, Sym(*), Sym(^))
 
-    x = remove_identities(|, isfalse, x)
-    x = remove_identities(&, istrue, x)
-    x = resolve_absorbing(|, istrue, x)
-    x = resolve_absorbing(&, isfalse, x)
-    x = normalorder(&, x)
-    x = normalorder(|, x)
+    remove_identities!(x, Sym(|), Sym(isfalse))
+    remove_identities!(x, Sym(&), Sym(istrue))
+    resolve_absorbing!(x, Sym(|), Sym(istrue))
+    resolve_absorbing!(x, Sym(&), Sym(isfalse))
+    normalorder!(x, Sym(&))
+    normalorder!(x, Sym(|))
 
     return x
 end

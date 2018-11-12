@@ -17,9 +17,14 @@ function expr(::Val{:type}, x::Sym)
     return firstarg(x)
 end
 
+function expr(::Val{:function}, x::Sym)
+    @assert gethead(x) === :function
+    return nameof(firstarg(x))
+end
+
 function expr(::Val{:call}, x::Sym)
     @assert gethead(x) === :call
-    return Expr(:call, nameof(firstarg(x)), map(expr, tailargs(x))...)
+    return Expr(:call, map(expr, getargs(x))...)
 end
 
 function expr(::Val{head}, x::Sym) where head

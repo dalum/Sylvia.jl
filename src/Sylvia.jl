@@ -15,6 +15,7 @@ isfalse(x) = x === false
 
 include("sym.jl")
 include("wild.jl")
+include("match.jl")
 include("protoinstance.jl")
 include("promotion.jl")
 include("expr.jl")
@@ -37,7 +38,7 @@ for op in (:istrue, :isfalse)
     @eval @register_atomic $op 1
 end
 
-for op in (:+, :-, :!,
+for op in (:+, :-, :*, :&, :|, :!,
            :length, :size,
            :abs, :abs2, :complex, :conj, :exp, :imag, :inv,
            :log, :one, :oneunit, :real, :sqrt, :transpose, :zero,
@@ -51,7 +52,7 @@ end
 Base.adjoint(x::Sym) = combine(Symbol("'"), x)
 
 # Two-arg operators
-for op in (:-, :/, :\, ://, :^, :÷, :isless, :<, :&, :|)
+for op in (:-, :/, :\, ://, :^, :÷, :isless, :<, :&, :|, :(==))
     @eval @register_atomic $(:(Base.$op)) 2
 end
 Base.getindex(x::Sym, val::Symbol) = Base.getindex(promote(x, QuoteNode(val))...)
@@ -61,11 +62,6 @@ Base.getindex(x::Sym, vals::Sym...) = combine(:ref, x, vals...)
 
 Base.getproperty(x::Sym, val::Symbol) = Base.getproperty(promote(x, QuoteNode(val))...)
 Base.getproperty(x::Sym, val::Sym{Symbol}) = combine(:(.), x, val)
-
-# Two-arg symmetric operators
-for op in (:(==),)
-    @eval @register_symmetric $(:(Base.$op)) 2
-end
 
 Base.in(x::Sym, y::Sym) = apply(in, x, y)
 
@@ -99,6 +95,16 @@ let w = S"w::Wild{Any}"
     @set! one(one(w)) => one(w)
 end
 
+let w = S"w::Wild{Number}"
+    @set! (+)(w) => w
+    @set! (*)(w) => w
+end
+
+let w = S"w::Wild{Bool}"
+    @set! (|)(w) => w
+    @set! (&)(w) => w
+end
+
 ##################################################
 # Special cases
 ##################################################
@@ -108,14 +114,14 @@ Base.one(::Type{Sym{TAG}}) where TAG = apply(one, Sym(TAG))
 Base.oneunit(::Type{Sym{TAG}}) where TAG = apply(oneunit, Sym(TAG))
 
 commuteswith(::Any, ::Any, ::Any) = false
-commuteswith(f, x::Sym{T}, y::Sym{S}) where {T,S} = commuteswith(f, T, S)
+@register_atomic commuteswith 3
 
-commuteswith(::typeof(+), ::Type{<:Number}, ::Type{<:Number}) = true
-commuteswith(::typeof(*), ::Type{<:Number}, ::Type{<:Number}) = true
+commuteswith(::Sym{typeof(+)}, ::Sym{<:Number}, ::Sym{<:Number}) = true
+commuteswith(::Sym{typeof(*)}, ::Sym{<:Number}, ::Sym{<:Number}) = true
 
-commuteswith(::typeof(+), ::Type{<:Array}, ::Type{<:Array}) = true
+commuteswith(::Sym{typeof(+)}, ::Sym{<:Array}, ::Sym{<:Array}) = true
 
-commuteswith(::typeof(&), ::Type{<:Bool}, ::Type{<:Bool}) = true
-commuteswith(::typeof(|), ::Type{<:Bool}, ::Type{<:Bool}) = true
+commuteswith(::Sym{typeof(&)}, ::Sym{<:Bool}, ::Sym{<:Bool}) = true
+commuteswith(::Sym{typeof(|)}, ::Sym{<:Bool}, ::Sym{<:Bool}) = true
 
 end # module

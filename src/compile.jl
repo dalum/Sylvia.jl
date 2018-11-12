@@ -18,7 +18,7 @@ function lower_one_expr(fn::Symbol, syms::Tuple, x)
 
     signature_str = join(signature, ", ")
 
-    ops = collect(getops(x))
+    ops = map(firstarg, collect(getops(x)))
     modules = map(parentmodule, ops)
     import_stmts = [:(using $(nameof(mod)): $(nameof(op))) for (mod, op) in zip(modules, ops)]
     body = expr(x)

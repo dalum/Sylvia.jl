@@ -26,13 +26,14 @@ end
 ##################################################
 
 _unwrap(x) = x
-_unwrap(x::Sym{TAG}) where {TAG} = hashead(x, :object) ? firstarg(x)::TAG : x
+_unwrap(x::Sym{TAG}) where {TAG} = hashead(x, :object) ? firstarg(x) : x
 
-function _apply(op, xs::Sym...)
+_apply(args...) = _apply(map(arg -> convert(Sym, arg), args)...)
+function _apply(op::Sym, xs::Sym...)
     tags = map(tagof, xs)
     TAG = promote_tag(:call, op, tags...)
     if all(hashead(:object), xs)
-        x = Sym{TAG}(op(map(firstarg, xs)...))
+        x = Sym{TAG}(firstarg(op)(map(firstarg, xs)...))
     else
         x = Sym{TAG}(:call, op, xs...)
     end
@@ -48,38 +49,5 @@ end
 # Querying apply/combine
 ##################################################
 
-function apply(op, xs::Sym...)
-    x = _apply(op, xs...)
-    q = query(x)
-    return _unwrap(q === missing ? x : q)
-end
-
-function apply_symmetric(op, xs::Sym...)
-    x0 = nothing
-    for ys in permutations(xs)
-        x = _apply(op, ys...)
-        q = query(x)
-        if q !== missing
-            x0 = q
-            break
-        elseif x0 === nothing
-            x0 = x
-        end
-    end
-    return _unwrap(x0)
-end
-
-function combine(head::Symbol, xs...)
-    x = _combine(head, xs...)
-    q = query(x)
-    return _unwrap(q === missing ? x : q)
-end
-
-##################################################
-# Special cases
-##################################################
-
-apply(::typeof(+), x::Sym) = x
-apply(::typeof(*), x::Sym) = x
-apply(::typeof(&), x::Sym) = x
-apply(::typeof(|), x::Sym) = x
+apply(op, xs...) = _unwrap(query!(_apply(op, xs...)))
+combine(head::Symbol, xs...) = _unwrap(query!(_combine(head, xs...)))
