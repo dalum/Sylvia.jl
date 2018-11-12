@@ -9,7 +9,7 @@ Base.iterate(ctx::Context) = iterate(ctx.data)
 Base.iterate(ctx::Context, x) = iterate(ctx.data, x)
 Base.getindex(ctx::Context, key) = getindex(ctx.data, key)
 Base.setindex!(ctx::Context, val, key) = setindex!(ctx.data, val, key)
-Base.delete!(ctx::Context, key) = delete!(ctx.data, key)
+Base.delete!(ctx::Context, key) = (delete!(ctx.data, key); ctx)
 
 Base.iterate(r::Base.Iterators.Reverse{Context}) = Base.iterate(r::Base.Iterators.Reverse{Context}, 1)
 function Base.iterate(r::Base.Iterators.Reverse{Context}, x)
@@ -66,11 +66,13 @@ end
 unset!(ctx::Context, x) = delete!(ctx, Sym(x))
 unset!(ctx::Context, x::Sym) = delete!(ctx, x)
 macro unset!(x)
+    __return__ = gensym("return")
     return quote
         if @__CONTEXT__().resolve
             @__CONTEXT__().resolve = false
-            unset!(@__CONTEXT__, $(esc(x)))
+            $__return__ = unset!(@__CONTEXT__, $(esc(x)))
             @__CONTEXT__().resolve = true
+            $__return__
         else
             unset!(@__CONTEXT__, $(esc(x)))
         end

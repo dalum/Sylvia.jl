@@ -9,7 +9,7 @@ function Cassette.execute(ctx::CassetteCtx, f, args...)
         newargs = (get(ctx.metadata, arg, arg) for arg in args)
         return f(newargs...)
     else
-        @warn "Could not overdub `$f` using sentinels: $(args)"
+        @warn "Could not overdub `$f` using protoinstances: $(args)"
         return Cassette.fallback(ctx, f, args...)
     end
 end
@@ -18,7 +18,7 @@ function diveinto(op, xs::Sym...)
     tags = map(tagof, xs)
     ps = map(oftype, tags)
     ctx = CassetteCtx(metadata = IdDict{Any,Sym}(key => val for (key, val) in zip(ps, xs)))
-    return Cassette.overdub(ctx, invoke, op, Tuple{tags...}, sentinels...)
+    return Cassette.overdub(ctx, invoke, op, Tuple{tags...}, ps...)
 end
 
 ##################################################

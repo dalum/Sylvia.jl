@@ -12,6 +12,8 @@ using Sylvia
     @test iszero(zero(typeof(a)))
     @test isone(one(a))
     @test isone(one(typeof(a)))
+    @test a[1] == getindex(a, 1)
+    @test a.b == getproperty(a, :b)
 end
 
 @testset "contexts" begin
