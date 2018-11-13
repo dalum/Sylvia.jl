@@ -1,13 +1,13 @@
 using Sylvia
 using Test
 
-@symbols Number a b c d
-@symbols Bool x y z
-@symbols Matrix{Float64} A B
+@sym Number :: a b c d
+@sym Bool :: x y z
+@sym Matrix{Float64} :: A B
 
 @testset "identities" begin
-    @test a == S"a"Number == S"a::Number"
-    @test a + b == S"a"Number + S"b"Number == S"a::Number + b::Number"
+    @test a == S"a::Number" == @!(a::Number)
+    @test a + b == S"a::Number + b::Number" == @!((a + b)::Number)
     @test iszero(zero(a))
     @test iszero(zero(typeof(a)))
     @test isone(one(a))
@@ -24,6 +24,12 @@ end
             @! a in b = false
             @test iszero(a)
             @test !(a in b)
+            @! unset a in b
+            @! iszero(a) = false
+            @test a in b
+            @test !iszero(a)
+            @! clear!
+            @test iszero(a)
         end
         @test iszero(a)
         @test a in b

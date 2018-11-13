@@ -1,15 +1,15 @@
-let w = S"w::Wild{Any}"
+let w = sym(Wild{Any}, :w)
     @! w == w = true
     @! zero(zero(w)) = zero(w)
     @! one(one(w)) = one(w)
 end
 
-let w = S"w::Wild{Number}"
+let w = sym(Wild{Number}, :w)
     @! (+)(w) = w
     @! (*)(w) = w
 end
 
-let w = S"w::Wild{Bool}"
+let w = sym(Wild{Bool}, :w)
     @! (|)(w) = w
     @! (&)(w) = w
 end

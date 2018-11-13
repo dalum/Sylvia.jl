@@ -4,9 +4,10 @@ import Cassette
 import Combinatorics: permutations
 import DataStructures: OrderedDict
 import LinearAlgebra
-import MacroTools: striplines
+import MacroTools: striplines, unblock
 
-export @S_str, @λ, @scope, @!, @symbols, @unset!,
+export @S_str, @λ, @scope, @!, @sym,
+    Wild,
     commuteswith, gather, substitute, tagof,
     isfalse, istrue
 

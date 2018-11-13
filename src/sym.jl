@@ -7,77 +7,111 @@ mutable struct Sym{TAG}
     end
 end
 
+# Constructors
+
+# Syms
+Sym(x::Sym) = x
+Sym{TAG}(x::Sym{TAG}) where {TAG} = x
+Sym{TAG}(x::Sym) where {TAG} = Sym{TAG}(gethead(x), getargs(x)...)
+
+# Generic
 Sym(x) = Sym{tagof(x)}(x)
-Sym(x::Expr, m::Module = Base) = Sym{tagof(x)}(x, m)
 Sym{TAG}(x) where {TAG} = Sym{TAG}(:object, x)
 Sym{TAG}(x::Type) where {TAG} = Sym{TAG}(:type, x)
 Sym{TAG}(x::Symbol) where {TAG} = Sym{TAG}(:symbol, x)
 Sym{TAG}(x::Function) where {TAG} = Sym{TAG}(:function, x)
-Sym{TAG}(e::Expr, m::Module = Base) where {TAG} = Sym{TAG}(Val(e.head), e, m)
 
-function Sym{TAG}(::Val{head}, e::Expr, m::Module) where {TAG,head}
-    @assert(e.head === head)
-    return Sym{TAG}(head, map(Sym, filter(!symignore, e.args))...)
+# Expressions
+Sym(x::Expr) = Sym(Val(x.head), x)
+Sym(::Val{head}, x::Expr) where {head} = Sym{tagof(x)}(Val(head), x)
+Sym{TAG}(x::Expr) where {TAG} = convert(Sym{TAG}, Sym(x))
+
+function Sym{TAG}(::Val{head}, x::Expr) where {TAG,head}
+    @assert(x.head === head)
+    return Sym{TAG}(head, map(Sym, filter(!symignore, x.args))...)
 end
 
-function Sym{TAG}(::Val{:call}, e::Expr, m::Module) where {TAG}
-    @assert e.head === :call
-    args = copy(e.args)
-    args[1] = Sym(Core.eval(m, args[1]))
-    for i in 2:length(args)
-        args[i] = Sym(args[i])
-    end
-    return apply(args...)
+function Sym(::Val{:call}, x::Expr)
+    @assert x.head === :call
+    return convert(Sym, apply(map(Sym, filter(!symignore, x.args))...))
 end
+Sym{TAG}(::Val{:call}, x::Expr) where {TAG} = convert(Sym{TAG}, Sym(Val(:call), x))
 
-function Sym{T}(::Val{:(::)}, e::Expr, m::Module) where {T}
-    @assert e.head === :(::)
-    arg = e.args[1]
-    @assert arg isa Symbol
-    TAG = Core.eval(m, e.args[2])
+function Sym(::Val{:(::)}, x::Expr)
+    @assert x.head === :(::)
+    arg, TAG = x.args
     return Sym{TAG}(arg)
 end
-
-(f::Sym)(args...) = apply(f, map(arg -> convert(Sym, arg), args)...)
-(f::Sym)(args::Sym...) = apply(f, args...)
+Sym{TAG}(::Val{:(::)}, x::Expr) where {TAG} = convert(Sym{TAG}, Sym(Val(:(::)), x))
 
 symignore(x) = false
 symignore(::LineNumberNode) = true
+
+# Make Syms callable
+
+(f::Sym)(args...) = apply(f, map(arg -> convert(Sym, arg), args)...)
+(f::Sym)(args::Sym...) = apply(f, args...)
 
 ##################################################
 # Convenience methods
 ##################################################
 
 macro S_str(str::String)
-    e = Meta.parse(str)
-    if e isa Expr
-        return Sym(e, __module__)
+    return esc_sym(Meta.parse(str))
+end
+
+sym(xs...) = Tuple(sym(x) for x in xs)
+sym(x) = Sym{Number}(x)
+sym(TAG::Type, xs...) = Tuple(sym(TAG, x) for x in xs)
+sym(TAG::Type, x) = Sym{TAG}(x)
+
+macro sym(xs::Symbol...)
+    symbols = map(QuoteNode, xs)
+    xs = map(esc, xs)
+    if length(xs) > 1
+        return :(($(xs...),) = sym($(symbols...)))
     else
-        return Sym(e)
+        return :($(xs...) = sym($(symbols...)))
     end
 end
 
-macro S_str(str::String, tag::String)
-    e = Meta.parse(str)
-    TAG = Core.eval(__module__, Meta.parse(tag))
-    if e isa Expr
-        return Sym{TAG}(e, __module__)
+macro sym(TAG::Expr, xs::Symbol...)
+    @assert TAG.head === :(::)
+    TAG, x = TAG.args
+    xs = (x, xs...)
+    symbols = map(QuoteNode, xs)
+    xs = map(esc, xs)
+    if length(xs) > 1
+        return :(($(xs...),) = sym($(esc(TAG)), $(symbols...)))
     else
-        return Sym{TAG}(e)
+        return :($(xs...) = sym($(esc(TAG)), $(symbols...)))
     end
 end
 
-symbols(TAG::Type, xs::Symbol...) = Tuple(Sym{TAG}(x) for x in xs)
+##################################################
+# Macro tools
+##################################################
 
-macro symbols(TAG, xs::Symbol...)
-    ret = Expr(:block)
-    tup = Expr(:tuple)
-    for x in xs
-        push!(ret.args, Expr(:(=), esc(x), :(Sym{$(esc(TAG))}($(QuoteNode(x))))))
-        push!(tup.args, esc(x))
-    end
-    push!(ret.args, tup)
-    return ret
+esc_sym(x) = esc(x)
+function esc_sym(x::Expr)
+    return Expr(:call, :Sym, Expr(:quote, unblock_interpolate(x)))
+end
+
+unblock_interpolate(x) = x
+unblock_interpolate(x::Symbol) = Expr(:$, x)
+
+function unblock_interpolate(x::Expr)
+    return unblock_interpolate(Val(x.head), x)
+end
+
+function unblock_interpolate(::Val{head}, x::Expr) where {head}
+    @assert x.head === head
+    return unblock(Expr(head, map(unblock_interpolate, x.args)...))
+end
+
+function unblock_interpolate(::Val{:curly}, x::Expr)
+    @assert x.head === :curly
+    return Expr(:$, x)
 end
 
 ##################################################

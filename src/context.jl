@@ -30,7 +30,7 @@ macro __context__()
     return :(ACTIVE_CONTEXT[])
 end
 
-function query!(x::Sym, ctx=ACTIVE_CONTEXT[])
+function query!(x::Sym, ctx::Context = ACTIVE_CONTEXT[])
     ctx.resolve || return x
 
     for (key, val) in Iterators.reverse(ctx)
@@ -47,40 +47,56 @@ end
 set!(ctx::Context, x, val) = set!(ctx, Sym(x), Sym(val))
 set!(ctx::Context, x, val::Sym) = set!(ctx, Sym(x), val)
 set!(ctx::Context, x::Sym, val) = set!(ctx, x, Sym(val))
-set!(ctx::Context, x::SymOrWild{T}, val::SymOrWild{<:T}) where {T} = setindex!(ctx, val, x)
-macro !(ex::Expr)
-    @assert Meta.isexpr(ex, :(=))
-    x, val = ex.args
-    expr = :(set!(@__context__, $(esc(x)), $(esc(val))))
-
-    if @__context__().resolve
-        __return__ = gensym("return")
-        return quote
-            @__context__().resolve = false
-            $__return__ = $expr
-            @__context__().resolve = true
-            $__return__
-        end
-    end
-    return expr
-end
+set!(ctx::Context, x::SymOrWild, val::SymOrWild) = setindex!(ctx, val, x)
 
 unset!(ctx::Context, x) = delete!(ctx, Sym(x))
 unset!(ctx::Context, x::Sym) = delete!(ctx, x)
-macro unset!(x)
-    expr = :(unset!(@__context__, $(esc(x))))
 
+##################################################
+# @!
+##################################################
+
+macro !(x)
+    ex = if Meta.isexpr(x, :(=))
+        key, val = x.args
+        :(set!(@__context__, $(esc_sym(key)), $(esc_sym(val))))
+    elseif x === :clear!
+        :(empty!(@__context__().data))
+    else
+        esc_sym(x)
+    end
+    return _resolve_wrap(ex)
+end
+
+macro !(option::Symbol, x)
+    ex = if option === :unset
+        :(unset!(@__context__, $(esc_sym(x))))
+    else
+        esc_sym(ex)
+    end
+    return _resolve_wrap(ex)
+end
+
+function _resolve_wrap(ex)
     if @__context__().resolve
         __return__ = gensym("return")
         return quote
-            @__context__().resolve = false
-            $__return__ = $expr
-            @__context__().resolve = true
-            $__return__
+            $__return__ = nothing
+            try
+                @__context__().resolve = false
+                $__return__ = $ex
+            finally
+                @__context__().resolve = true
+                $__return__
+            end
         end
     end
-    return expr
+    return ex
 end
+
+##################################################
+# @scope
+##################################################
 
 macro scope(ex)
     return scope(:nothing, ex)
@@ -90,24 +106,16 @@ macro scope(option::Symbol, ex)
     return scope(option, ex)
 end
 
-function scope(option::Symbol, ex)
+function scope(option::Symbol, x)
     __return__ = gensym("return")
     __context__ = gensym("context")
-    expr = quote
+    ex = quote
         ACTIVE_CONTEXT[] = Context(@__context__)
-        $__return__ = $(esc(ex))
+        $__return__ = $(esc(x))
         ACTIVE_CONTEXT[] = ACTIVE_CONTEXT[].parent
         $__return__
     end
 
-    if @__context__().resolve && option === :suspend
-        __return__ = gensym("return")
-        return quote
-            @__context__().resolve = false
-            $__return__ = $expr
-            @__context__().resolve = true
-            $__return__
-        end
-    end
-    return expr
+    option === :suspend && return _resolve_wrap(ex)
+    return ex
 end
