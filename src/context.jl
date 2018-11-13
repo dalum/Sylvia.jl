@@ -41,6 +41,7 @@ function query!(x::Sym, ctx::Context = ACTIVE_CONTEXT[])
     end
 
     ctx.parent === nothing || query!(x, ctx.parent)
+
     return x
 end
 
@@ -65,22 +66,44 @@ macro !(x)
     else
         esc_sym(x)
     end
-    return _resolve_wrap(ex)
+    return _unresolve_wrap(ex)
 end
 
 macro !(option::Symbol, x)
     ex = if option === :unset
         :(unset!(@__context__, $(esc_sym(x))))
+    elseif option === :eval
+        :($(esc(:eval))($(esc_sym(x))))
+    elseif option === :resolve
+        return _resolve_wrap(esc_sym(x))
     else
-        esc_sym(ex)
+        esc_sym(x)
     end
-    return _resolve_wrap(ex)
+    return _unresolve_wrap(ex)
 end
 
 function _resolve_wrap(ex)
-    if @__context__().resolve
-        __return__ = gensym("return")
-        return quote
+    __return__ = gensym("return")
+    return quote
+        if !@__context__().resolve
+            $__return__ = nothing
+            try
+                @__context__().resolve = true
+                $__return__ = $ex
+            finally
+                @__context__().resolve = false
+                $__return__
+            end
+        else
+            $ex
+        end
+    end
+end
+
+function _unresolve_wrap(ex)
+    __return__ = gensym("return")
+    return quote
+        if @__context__().resolve
             $__return__ = nothing
             try
                 @__context__().resolve = false
@@ -89,9 +112,10 @@ function _resolve_wrap(ex)
                 @__context__().resolve = true
                 $__return__
             end
+        else
+            $ex
         end
     end
-    return ex
 end
 
 ##################################################
@@ -116,6 +140,6 @@ function scope(option::Symbol, x)
         $__return__
     end
 
-    option === :suspend && return _resolve_wrap(ex)
+    option === :suspend && return _unresolve_wrap(ex)
     return ex
 end

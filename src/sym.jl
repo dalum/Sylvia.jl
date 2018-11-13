@@ -19,7 +19,7 @@ Sym(x) = Sym{tagof(x)}(x)
 Sym{TAG}(x) where {TAG} = Sym{TAG}(:object, x)
 Sym{TAG}(x::Type) where {TAG} = Sym{TAG}(:type, x)
 Sym{TAG}(x::Symbol) where {TAG} = Sym{TAG}(:symbol, x)
-Sym{TAG}(x::Function) where {TAG} = Sym{TAG}(:function, x)
+Sym{TAG}(x::Function) where {TAG} = Sym{TAG}(:fn, x)
 
 # Expressions
 Sym(x::Expr) = Sym(Val(x.head), x)
@@ -33,8 +33,8 @@ end
 
 function Sym(::Val{:call}, x::Expr)
     @assert x.head === :call
-    f, args = x.args[1], x.args[2:end]
-    args = map(Sym, filter(!symignore, args))
+    args = map(Sym, filter(!symignore, x.args))
+    f, args = args[1], args[2:end]
     return convert(Sym, f(args...))
 end
 Sym{TAG}(::Val{:call}, x::Expr) where {TAG} = convert(Sym{TAG}, Sym(Val(:call), x))
@@ -45,6 +45,19 @@ function Sym(::Val{:(::)}, x::Expr)
     return Sym{TAG}(arg)
 end
 Sym{TAG}(::Val{:(::)}, x::Expr) where {TAG} = convert(Sym{TAG}, Sym(Val(:(::)), x))
+
+function Sym(::Val{:function}, x::Expr)
+    @assert x.head === :function
+    fn, body = x.args
+    return Sym{Function}(:function, Sym(fn), Sym(body))
+end
+Sym{TAG}(::Val{:function}, x::Expr) where {TAG} = convert(Sym{TAG}, Sym(Val(:function), x))
+
+function Sym(::Val{:macrocall}, x::Expr)
+    @assert x.head === :macrocall
+    return Sym{Any}(:macrocall, x.args...)
+end
+Sym{TAG}(::Val{:macrocall}, x::Expr) where {TAG} = convert(Sym{TAG}, Sym(Val(:macrocall), x))
 
 symignore(x) = false
 symignore(::LineNumberNode) = true
@@ -113,6 +126,11 @@ end
 
 function unblock_interpolate(::Val{:curly}, x::Expr)
     @assert x.head === :curly
+    return Expr(:$, x)
+end
+
+function unblock_interpolate(::Val{:macrocall}, x::Expr)
+    @assert x.head === :macrocall
     return Expr(:$, x)
 end
 

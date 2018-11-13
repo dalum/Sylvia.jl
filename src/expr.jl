@@ -1,46 +1,58 @@
 Core.eval(m::Module, x::Sym) = Core.eval(m, expr(x))
 
-expr(x::Sym) = (expr(Val(gethead(x)), x))
+expr(x::Sym; kwargs...) = (expr(Val(gethead(x)), x; kwargs...))
 
-function expr(::Val{:object}, x::Sym)
+function expr(::Val{:object}, x::Sym; kwargs...)
     @assert gethead(x) === :object
     return firstarg(x)
 end
 
-function expr(::Val{:symbol}, x::Sym)
+function expr(::Val{:symbol}, x::Sym; annotate=false, kwargs...)
     @assert gethead(x) === :symbol
-    return firstarg(x)
+    if annotate
+        return :($(firstarg(x))::$(tagof(x)))
+    else
+        return firstarg(x)
+    end
 end
 
-function expr(::Val{:type}, x::Sym)
+function expr(::Val{:type}, x::Sym; kwargs...)
     @assert gethead(x) === :type
     return firstarg(x)
 end
 
-function expr(::Val{:function}, x::Sym)
-    @assert gethead(x) === :function
+function expr(::Val{:fn}, x::Sym; kwargs...)
+    @assert gethead(x) === :fn
     return nameof(firstarg(x))
 end
 
-function expr(::Val{:call}, x::Sym)
+function expr(::Val{:call}, x::Sym; kwargs...)
     @assert gethead(x) === :call
-    return Expr(:call, map(expr, getargs(x))...)
+    return Expr(:call, map(arg -> expr(arg; kwargs...), getargs(x))...)
 end
 
-function expr(::Val{head}, x::Sym) where head
+function expr(::Val{:function}, x::Sym; kwargs...)
+    @assert gethead(x) === :function
+    fn, body = getargs(x)
+    return Expr(:function, expr(fn, annotate=true; kwargs...), expr(body; kwargs...))
+end
+
+function expr(::Val{:macrocall}, x::Sym; kwargs...)
+    @assert gethead(x) === :macrocall
+    args = getargs(x)
+    return Expr(:macrocall, map(arg -> expr(arg; kwargs...), args)...)
+end
+
+function expr(::Val{head}, x::Sym; kwargs...) where head
     @assert gethead(x) === head
-    return Expr(gethead(x), map(expr, getargs(x))...)
+    return Expr(gethead(x), map(arg -> expr(arg; kwargs...), getargs(x))...)
 end
 
-expr(a) = a # Catch all
+expr(a; kwargs...) = a # Catch all
 
-expr(t::Tuple) = Expr(:tuple, map(expr, t)...)
-expr(v::AbstractVector) = Expr(:vect, map(expr, v)...)
-expr(A::AbstractMatrix) = Expr(:vcat, mapslices(x -> Expr(:row, map(expr, x)...), A, dims=2)...)
-
-macro expr(x)
-    return :(expr($(esc(x))))
-end
+expr(t::Tuple; kwargs...) = Expr(:tuple, map(arg -> expr(arg; kwargs...), t)...)
+expr(v::AbstractVector; kwargs...) = Expr(:vect, map(arg -> expr(arg; kwargs...), v)...)
+expr(A::AbstractMatrix; kwargs...) = Expr(:vcat, mapslices(x -> Expr(:row, map(arg -> expr(arg; kwargs...), x)...), A, dims=2)...)
 
 collectsort(x::Set{Sym}; kwargs...) = sort!(collect(x), by=string; kwargs...)
 

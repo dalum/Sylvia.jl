@@ -25,17 +25,27 @@ end
 ##################################################
 
 unwrap(x) = x
-unwrap(x::Sym{TAG}) where {TAG} = hashead(x, :object) ? firstarg(x) : x
+function unwrap(x::Sym{TAG}) where {TAG}
+    hashead(x, :object) && return firstarg(x)
+    if hashead(x, :call)
+        op = firstarg(x)
+        xs = getargs(x)[2:end]
+        if hashead(op, :fn) && all(hashead(:object), xs)
+            f = firstarg(op)
+            objs = map(firstarg, xs)
+            if applicable(f, objs...)
+                return firstarg(op)(objs...)
+            end
+        end
+    end
+    return x
+end
 
 _apply(args...) = _apply(map(arg -> convert(Sym, arg), args)...)
 function _apply(op::Sym, xs::Sym...)
     tags = map(tagof, xs)
     TAG = promote_tag(:call, op, tags...)
-    if hashead(op, :function) && all(hashead(:object), xs)
-        x = Sym{TAG}(firstarg(op)(map(firstarg, xs)...))
-    else
-        x = Sym{TAG}(:call, op, xs...)
-    end
+    x = Sym{TAG}(:call, op, xs...)
     return x::Sym{TAG}
 end
 
