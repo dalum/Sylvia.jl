@@ -7,7 +7,7 @@ using Test
 
 @testset "identities" begin
     @test a == S"a::Number" == @!(a::Number)
-    @test a + b == S"a::Number + b::Number" == @!((a + b)::Number)
+    @test a + b == S"(a + b)::Number" == @!((a + b)::Number)
     @test iszero(zero(a))
     @test iszero(zero(typeof(a)))
     @test isone(one(a))
@@ -80,10 +80,20 @@ end
     @test all(Matrix(A, 2, 2) .== [A[1,1] A[1,2]; A[2,1] A[2,2]])
 end
 
+# This function definition has to live at the top level
+function h end
+
 @testset "function generation" begin
     X = randn(2, 2)
     f = @λ (a, b, c) => a + b + c
     g = @λ (A,) => Matrix(A, 2, 2)^2
+
+    x = a + b + c
+    @! eval function h(a, b, c)
+        x
+    end
+
     @test f(1, 2, 3) == 6
+    @test h(1, 2, 3) == 6
     @test g(X) ≈ X^2
 end
