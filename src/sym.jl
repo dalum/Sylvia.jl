@@ -124,6 +124,14 @@ function unblock_interpolate(::Val{head}, x::Expr) where {head}
     return unblock(Expr(head, map(unblock_interpolate, x.args)...))
 end
 
+function unblock_interpolate(::Val{:call}, x::Expr)
+    @assert x.head === :call
+    return Expr(
+        :$,
+        :(applicable($(x.args...)) ? $x : Core._expr(:call, $(x.args...)))
+    )
+end
+
 function unblock_interpolate(::Val{:curly}, x::Expr)
     @assert x.head === :curly
     return Expr(:$, x)
