@@ -33,7 +33,9 @@ end
 
 function Sym(::Val{:call}, x::Expr)
     @assert x.head === :call
-    return convert(Sym, apply(map(Sym, filter(!symignore, x.args))...))
+    f, args = x.args[1], x.args[2:end]
+    args = map(Sym, filter(!symignore, args))
+    return convert(Sym, f(args...))
 end
 Sym{TAG}(::Val{:call}, x::Expr) where {TAG} = convert(Sym{TAG}, Sym(Val(:call), x))
 
@@ -92,7 +94,7 @@ end
 # Macro tools
 ##################################################
 
-esc_sym(x) = esc(x)
+esc_sym(x) = Expr(:call, :Sym, esc(x))
 function esc_sym(x::Expr)
     return Expr(:call, :Sym, Expr(:quote, unblock_interpolate(x)))
 end
