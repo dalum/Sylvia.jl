@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Expressions · Sylvia</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><h1>Sylvia</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../">Home</a></li><li><a class="toctext" href="../basics/">Basics</a></li><li><a class="toctext" href="../symbols/">Symbols</a></li><li class="current"><a class="toctext" href>Expressions</a><ul class="internal"><li><a class="toctext" href="#Rules-1">Rules</a></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li><a href>Expressions</a></li></ul><a class="edit-page" href="https://github.com/dalum/Sylvia.jl/blob/master/docs/src/expressions.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Expressions</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Expressions-1" href="#Expressions-1">Expressions</a></h1><p>Sylvia provides methods for a variety of functions in base Julia, which allows expressions to be constructed by simply applying functions to symbols:</p><pre><code class="language-julia">julia&gt; @sym Number :: a b
+(a, b)
+
+julia&gt; a + b
+a + b
+
+julia&gt; acos(sin(a) + cos(b))
+acos(sin(a) + cos(b))
+
+julia&gt; dump(a + b)
+Sylvia.Sym{Number}
+  head: Symbol call
+  args: Array{Any}((3,))
+    1: Sylvia.Sym{typeof(+)}
+      head: Symbol function
+      args: Array{Any}((1,))
+        1: + (function of type typeof(+))
+    2: Sylvia.Sym{Number}
+      head: Symbol symbol
+      args: Array{Any}((1,))
+        1: Symbol a
+    3: Sylvia.Sym{Number}
+      head: Symbol symbol
+      args: Array{Any}((1,))
+        1: Symbol b</code></pre><p>As can be seen in the example above, Sylvia uses the tag of <code>a</code> and <code>b</code> to correctly derive the tag of the expression <code>a + b</code> as <code>Number</code>.</p><div class="admonition note"><div class="admonition-title">Note</div><div class="admonition-text"><p>The function responsible for deriving the tag in Sylvia is called <code>Sylvia.promote_tag</code>.  Sylvia relies on Julia for most of the promotion mechanisms, with additional methods for a few special cases to handle correct promotion.</p></div></div><p>While the most common base functions have been overloaded to work with <code>Sym</code>s, user–defined functions and functions in non–base libraries will, in general, not have methods for <code>Sym</code>s.  Sylvia provides two means of working with functions that have not been overloaded: <code>Sylvia.@register_atomic</code>, and manual wrapping:</p><pre><code class="language-julia">julia&gt; function f end
+f (generic function with 0 methods)
+
+julia&gt; Sylvia.@register_atomic f 1
+f (generic function with 1 method)
+
+julia&gt; f(a)
+f(a)
+
+julia&gt; function g end
+g (generic function with 0 methods)
+
+julia&gt; @! g(a)
+g(a)</code></pre><p>In the first example above, we registered a function, <code>f</code>, with <code>1</code> argument.  To &quot;register&quot; <code>f</code>, the <code>Sylvia.@register_atomic f N</code> macro creates methods for <code>f</code> <code>N</code> arguments of type <code>Sym</code>, including promoting methods for all combinations involving at least one <code>Sym</code> and arguments of <code>Any</code> type.  The all–<code>Sym</code> method then dispatches to <code>Sylvia.apply(f, args...)</code>, which will create the <code>f(args...)</code> expression.</p><p>In the second example, we declared the function <code>g</code>, and then applied it to <code>a</code> inside the <code>@!</code> macro.  When applying functions inside the <code>@!</code> macro, Sylvia will check if any methods exist for the given function and arguments.  If such a method exists, it will be applied and otherwise, the expression will be returned.  In this case, no method existed for <code>g(::Sym)</code>.  This pattern works for any type of function and argument, and so we could also apply it to the number <code>10</code>:</p><pre><code class="language-julia">julia&gt; @! g(10)
+g(10)
+
+julia&gt; g(x::Integer) = x^2
+g (generic function with 1 method)
+
+julia&gt; @! g(10)
+100
+
+julia&gt; @! g(10.0)
+g(10.0)</code></pre><p>Here we saw that defining a method for <code>g(::Integer)</code> suddenly allowed <code>@! g(10)</code> to call that method.</p><h2><a class="nav-anchor" id="Rules-1" href="#Rules-1">Rules</a></h2><footer><hr/><a class="previous" href="../symbols/"><span class="direction">Previous</span><span class="title">Symbols</span></a></footer></article></body></html>
