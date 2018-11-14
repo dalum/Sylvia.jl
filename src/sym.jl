@@ -76,7 +76,7 @@ macro S_str(str::String)
 end
 
 sym(xs...) = Tuple(sym(x) for x in xs)
-sym(x) = Sym{Number}(x)
+sym(x) = Sym{Any}(x)
 sym(TAG::Type, xs...) = Tuple(sym(TAG, x) for x in xs)
 sym(TAG::Type, x) = Sym{TAG}(x)
 

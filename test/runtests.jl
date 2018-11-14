@@ -3,16 +3,16 @@ using Test
 
 using Sylvia: commuteswith, isfalse, istrue, sym
 
-@sym Any :: obj
+@sym obj
 @sym Number :: a b c d
 @sym Bool :: x y z
 @sym Matrix{Float64} :: A B
 @sym Vector{Float64} :: v w
 
 @testset "identities" begin
-    @test obj == sym(Any, :obj)
-    @test a == sym(:a)
-    @test (a, b) == sym(:a, :b)
+    @test obj == sym(:obj)
+    @test a == sym(Number, :a)
+    @test (a, b) == sym(Number, :a, :b)
     @test a == S"a::Number" == @!(a::Number)
     @test a + b == S"(a + b)::Number" == @!((a + b)::Number)
     @test S"Float64" == @! Float64

@@ -10,7 +10,7 @@ A simple symbolic library with a pretty name.
 ```julia
 julia> using Sylvia
 
-julia> @sym a b c d
+julia> @sym Number :: a b c d
 (a, b, c, d)
 
 julia> a + b*c + c |> gather
