@@ -1,17 +1,36 @@
-let w = sym(Wild{Any}, :w)
-    @! w == w = true
-    @! zero(zero(w)) = zero(w)
-    @! one(one(w)) = one(w)
+let
+    @sym Wild{Any} :: x
+
+    @! x == x = true
+    @! zero(zero(x)) = zero(x)
+    @! one(one(x)) = one(x)
 end
 
-let w = sym(Wild{Number}, :w)
-    @! (+)(w) = w
-    @! (*)(w) = w
+let
+    @sym Wild{Number} :: x y
+    @sym Wild{AbstractMatrix} :: X Y
+
+    @! (+)(x) = x
+    @! (*)(x) = x
+
+    @! commuteswith(+, x, y) = true
+    @! commuteswith(+, X, y) = true
+    @! commuteswith(+, x, Y) = true
+    @! commuteswith(+, X, Y) = true
+
+    @! commuteswith(*, x, y) = true
+    @! commuteswith(*, X, y) = true
+    @! commuteswith(*, x, Y) = true
 end
 
-let w = sym(Wild{Bool}, :w)
-    @! (|)(w) = w
-    @! (&)(w) = w
+let
+    @sym Wild{Bool} :: x y
+
+    @! (|)(x) = x
+    @! (&)(x) = x
+
+    @! commuteswith(&, x, y) = true
+    @! commuteswith(|, x, y) = true
 end
 
 # Create a new context for user rules

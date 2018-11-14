@@ -4,7 +4,6 @@ mutable struct Context <: AbstractDict{Sym,Sym}
     resolve::Bool
 end
 Context(parent::Union{Context,Nothing}, pairs::Pair{<:Sym,<:Sym}...) = Context(parent, OrderedDict(pairs...), true)
-Context(pairs::Pair{<:Sym,<:Sym}...) = Context(GLOBAL_CONTEXT, pairs...)
 
 Base.length(ctx::Context) = length(ctx.data)
 Base.iterate(ctx::Context) = iterate(ctx.data)
@@ -45,12 +44,7 @@ function query!(x::Sym, ctx::Context = ACTIVE_CONTEXT[])
     return x
 end
 
-set!(ctx::Context, x, val) = set!(ctx, Sym(x), Sym(val))
-set!(ctx::Context, x, val::Sym) = set!(ctx, Sym(x), val)
-set!(ctx::Context, x::Sym, val) = set!(ctx, x, Sym(val))
-set!(ctx::Context, x::SymOrWild, val::SymOrWild) = setindex!(ctx, val, x)
-
-unset!(ctx::Context, x) = delete!(ctx, Sym(x))
+set!(ctx::Context, x::Sym, val::Sym) = setindex!(ctx, val, x)
 unset!(ctx::Context, x::Sym) = delete!(ctx, x)
 
 ##################################################
@@ -132,12 +126,15 @@ end
 
 function scope(option::Symbol, x)
     __return__ = gensym("return")
-    __context__ = gensym("context")
     ex = quote
         ACTIVE_CONTEXT[] = Context(@__context__)
-        $__return__ = $(esc(x))
-        ACTIVE_CONTEXT[] = ACTIVE_CONTEXT[].parent
-        $__return__
+        $__return__ = nothing
+        try
+            $__return__ = $(esc(x))
+        finally
+            ACTIVE_CONTEXT[] = ACTIVE_CONTEXT[].parent
+            $__return__
+        end
     end
 
     option === :suspend && return _unresolve_wrap(ex)

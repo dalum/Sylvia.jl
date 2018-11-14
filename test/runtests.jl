@@ -1,19 +1,86 @@
 using Sylvia
 using Test
 
+using Sylvia: commuteswith, isfalse, istrue, sym
+
+@sym Any :: obj
 @sym Number :: a b c d
 @sym Bool :: x y z
 @sym Matrix{Float64} :: A B
+@sym Vector{Float64} :: v w
 
 @testset "identities" begin
+    @test obj == sym(Any, :obj)
+    @test a == sym(:a)
+    @test (a, b) == sym(:a, :b)
     @test a == S"a::Number" == @!(a::Number)
     @test a + b == S"(a + b)::Number" == @!((a + b)::Number)
+    @test S"Float64" == @! Float64
+    @test S"AbstractMatrix" == @! AbstractMatrix
+
     @test iszero(zero(a))
     @test iszero(zero(typeof(a)))
     @test isone(one(a))
     @test isone(one(typeof(a)))
+    @test iszero(zero(S"Float64"))
+    @test isone(one(S"Float64"))
     @test a[1] == getindex(a, 1)
+    @test a[:b] == getindex(a, S"QuoteNode(:b)")
     @test a.b == getproperty(a, :b)
+    @test a.b == getproperty(a, S"QuoteNode(:b)")
+    @test a(1) == a(S"1") == Sylvia.apply(a, 1)
+end
+
+@testset "conversion" begin
+    @sym Float64 :: q r
+    @test convert(Tuple{Sylvia.Sym{Float64}, Sylvia.Sym{Float64}}, (:q, :r)) == (q, r)
+    @test convert(Tuple{Sylvia.Sym, Sylvia.Sym}, (:a, :b)) == (a, b)
+end
+
+@testset "promotion" begin
+    for T in (Float32, Float64, Complex{Float32}, Complex{Float64})
+        @test @!(a::T) + @!(b::T) isa Sylvia.Sym{T}
+        @test @!(a::T) - @!(b::T) isa Sylvia.Sym{T}
+        @test @!(a::T) * @!(b::T) isa Sylvia.Sym{T}
+        @test @!(a::T) / @!(b::T) isa Sylvia.Sym{T}
+        @test cos(@! a::T) isa Sylvia.Sym{T}
+        @test sin(@! a::T) isa Sylvia.Sym{T}
+        @test exp(@! a::T) isa Sylvia.Sym{T}
+        @test log(@! a::T) isa Sylvia.Sym{T}
+        @test (@! a::T)^2 isa Sylvia.Sym{T}
+        @test (@! a::T)^-1 isa Sylvia.Sym{T}
+    end
+end
+
+@testset "protoinstances" begin
+    @test Sylvia.oftype(Number) isa Sylvia.ProtoNumber
+    @test Sylvia.oftype(Wild{Number}) isa Sylvia.ProtoNumber
+end
+
+@testset "wild" begin
+    wild_default = Sylvia.wild(:w)
+    wild_float = Sylvia.wild(Float64, :w)
+    wild_a = Sylvia.wild(a)
+    @test Sylvia.ismatch(Sylvia.match(wild_float, wild_default))
+    @test !Sylvia.ismatch(Sylvia.match(wild_default, wild_float))
+    @test Sylvia.ismatch(Sylvia.match(wild_a, wild_default))
+    @test Sylvia.ismatch(Sylvia.match(@!(a::Float64), wild_float))
+    @test !Sylvia.ismatch(Sylvia.match(a, wild_float))
+end
+
+@testset "commutators" begin
+    @test commuteswith(+, a, b)
+    @test commuteswith(+, A, B)
+    @test commuteswith(+, A, b)
+    @test commuteswith(+, a, B)
+
+    @test commuteswith(*, a, b)
+    @test commuteswith(*, a, B)
+    @test commuteswith(*, A, b)
+    @test commuteswith(*, A, B) isa Sylvia.Sym
+
+    @test commuteswith(&, x, y)
+    @test commuteswith(|, x, y)
 end
 
 @testset "contexts" begin
@@ -34,6 +101,26 @@ end
         @test iszero(a)
         @test a in b
     end
+end
+
+@testset "expr" begin
+    @test Sylvia.expr(a) === :a
+    @test Sylvia.expr(a + b) == :(a + b)
+    @test Sylvia.expr((a, b, c, d)) == :((a, b, c, d))
+    @test Sylvia.expr([a, b, c, d]) == :([a, b, c, d])
+    @test Sylvia.getsymbols((a, b, c, d)) == [:a, :b, :c, :d]
+    @test Sylvia.getsymbols([a, b, c, d]) == [:a, :b, :c, :d]
+    @test Sylvia.collectsort(Sylvia.getops((a + b, b * c, sin(d)))) == [*, +, sin]
+end
+
+@testset "function diving" begin
+    function f(x::Number)
+        y = x + 1
+        return 2y
+    end
+    @test_throws MethodError f(a)
+    Sylvia.@register f 1
+    @test f(a) == 2(a + 1)
 end
 
 @testset "combine" begin
@@ -78,6 +165,20 @@ end
 @testset "arrays" begin
     @test all(Vector(A, 2) .== [A[1], A[2]])
     @test all(Matrix(A, 2, 2) .== [A[1,1] A[1,2]; A[2,1] A[2,2]])
+
+    @! length(v) = 4
+
+    @test collect(v) == Vector(v, 4)
+    for (i, vi) in enumerate(v)
+        @test v[i] == vi
+    end
+end
+
+@testset "@!" begin
+    function g end
+    @test @!(g(a)) == S"g(a)"
+    @! g(a) = a + 1
+    @test a + 1 == @! resolve g(a)
 end
 
 # This function definition has to live at the top level

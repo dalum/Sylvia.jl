@@ -8,8 +8,19 @@ import MacroTools: striplines, unblock
 
 export @S_str, @λ, @scope, @!, @sym,
     Wild,
-    commuteswith, gather, substitute, tagof,
-    isfalse, istrue
+    gather, substitute, tagof
+
+##################################################
+# Misc
+##################################################
+
+@inline istrue(x) = x == true
+@inline isfalse(x) = x == false
+@inline commuteswith(op, x, y) = op(x, y) == op(y, x)
+
+##################################################
+# Includes
+##################################################
 
 include("sym.jl")
 include("wild.jl")
@@ -28,27 +39,5 @@ include("simplify.jl")
 include("array.jl")
 include("ops.jl")
 include("rules.jl")
-
-##################################################
-# Special cases
-##################################################
-
-@inline istrue(x) = x == true
-@inline isfalse(x) = x == false
-
-Base.zero(::Type{Sym{TAG}}) where TAG = apply(zero, Sym(TAG))
-Base.one(::Type{Sym{TAG}}) where TAG = apply(one, Sym(TAG))
-Base.oneunit(::Type{Sym{TAG}}) where TAG = apply(oneunit, Sym(TAG))
-
-commuteswith(::Any, ::Any, ::Any) = false
-@register_atomic commuteswith 3
-
-commuteswith(::Sym{typeof(+)}, ::Sym{<:Number}, ::Sym{<:Number}) = true
-commuteswith(::Sym{typeof(*)}, ::Sym{<:Number}, ::Sym{<:Number}) = true
-
-commuteswith(::Sym{typeof(+)}, ::Sym{<:Array}, ::Sym{<:Array}) = true
-
-commuteswith(::Sym{typeof(&)}, ::Sym{<:Bool}, ::Sym{<:Bool}) = true
-commuteswith(::Sym{typeof(|)}, ::Sym{<:Bool}, ::Sym{<:Bool}) = true
 
 end # module

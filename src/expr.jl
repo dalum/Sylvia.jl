@@ -26,21 +26,10 @@ function expr(::Val{:fn}, x::Sym; kwargs...)
     return nameof(firstarg(x))
 end
 
-function expr(::Val{:call}, x::Sym; kwargs...)
-    @assert gethead(x) === :call
-    return Expr(:call, map(arg -> expr(arg; kwargs...), getargs(x))...)
-end
-
 function expr(::Val{:function}, x::Sym; kwargs...)
     @assert gethead(x) === :function
     fn, body = getargs(x)
     return Expr(:function, expr(fn, annotate=true; kwargs...), expr(body; kwargs...))
-end
-
-function expr(::Val{:macrocall}, x::Sym; kwargs...)
-    @assert gethead(x) === :macrocall
-    args = getargs(x)
-    return Expr(:macrocall, map(arg -> expr(arg; kwargs...), args)...)
 end
 
 function expr(::Val{head}, x::Sym; kwargs...) where head
@@ -54,7 +43,7 @@ expr(t::Tuple; kwargs...) = Expr(:tuple, map(arg -> expr(arg; kwargs...), t)...)
 expr(v::AbstractVector; kwargs...) = Expr(:vect, map(arg -> expr(arg; kwargs...), v)...)
 expr(A::AbstractMatrix; kwargs...) = Expr(:vcat, mapslices(x -> Expr(:row, map(arg -> expr(arg; kwargs...), x)...), A, dims=2)...)
 
-collectsort(x::Set{Sym}; kwargs...) = sort!(collect(x), by=string; kwargs...)
+collectsort(x; kwargs...) = sort!(collect(x), by=string; kwargs...)
 
 getsymbols(x) = map(firstarg, collectsort(getsyms(x)))
 

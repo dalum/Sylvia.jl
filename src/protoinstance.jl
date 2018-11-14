@@ -1,9 +1,9 @@
 macro Proto(T)
-    return Expr(:toplevel, :(mutable struct $(Symbol("Proto",string(T))) <: $(esc(T)) end))
+    return Expr(:toplevel, :(mutable struct $(Symbol("Proto", string(T))) <: $(esc(T)) end))
 end
 
 macro proto(T)
-    return esc(Symbol("Proto",string(T)))
+    return esc(Symbol("Proto", string(T)))
 end
 
 function oftype end

@@ -1,12 +1,14 @@
 const MatchPairs = Set{Union{Bool,Pair{<:Sym{<:Wild},<:Sym}}}
 
 # Catch all
-match(x, y) = istrue(x == y) ? MatchPairs() : MatchPairs(false)
+match(x, y) = (x == y) === true ? MatchPairs() : MatchPairs(false)
 match(x::Sym, y) = match(promote(x, y)...)
 match(x, y::Sym) = match(promote(x, y)...)
 
 match(x::Sym{<:TAG}, y::Sym{Wild{TAG}}) where {TAG} = MatchPairs([y => x])
-match(x::Sym{Wild{TAG}}, y::Sym{Wild{TAG}}) where {TAG} = MatchPairs([x => y])
+match(x::Sym{Wild{T}}, y::Sym{Wild{S}}) where {T,S} = MatchPairs(false)
+match(x::Sym{Wild{T}}, y::Sym{Wild{S}}) where {S,T<:S} = MatchPairs([x => y])
+
 function match(x::Sym, y::Sym)
     gethead(x) === gethead(y) || return MatchPairs(false)
     xargs, yargs = getargs(x), getargs(y)

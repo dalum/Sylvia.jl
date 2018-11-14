@@ -14,6 +14,9 @@ for op in (:+, :-, :*, :&, :|, :!,
     @eval @register_atomic $(:(Base.$op)) 1
 end
 Base.adjoint(x::Sym) = combine(Symbol("'"), x)
+Base.zero(::Type{Sym{TAG}}) where TAG = apply(zero, Sym(TAG))
+Base.one(::Type{Sym{TAG}}) where TAG = apply(one, Sym(TAG))
+Base.oneunit(::Type{Sym{TAG}}) where TAG = apply(oneunit, Sym(TAG))
 
 # Two-arg operators
 for op in (:-, :/, :\, ://, :^, :÷, :isless, :<, :&, :|, :(==))
