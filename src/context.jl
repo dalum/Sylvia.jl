@@ -65,19 +65,23 @@ macro !(x)
     return _unresolve_wrap(ex)
 end
 
-macro !(option::Symbol, x)
-    ex = if option === :unset
-        :(unset!(@__context__, $(esc_sym(x))))
-    elseif option === :eval
-        :($(esc(:eval))($(esc_sym(x))))
-    elseif option === :expr
-        esc_sym(x, interpolate=false)
-    elseif option === :resolve
-        return _resolve_wrap(esc_sym(x))
-    else
-        esc_sym(x)
+macro !(option::Symbol, xs...)
+    __return__ = Expr(:block)
+    for x in xs
+        ex = if option === :unset
+            :(unset!(@__context__, $(esc_sym(x)))) |> _unresolve_wrap
+        elseif option === :eval
+            :($(esc(:eval))($(esc_sym(x)))) |> _unresolve_wrap
+        elseif option === :expr
+            esc_sym(x, interpolate=false) |> _unresolve_wrap
+        elseif option === :resolve
+            return esc_sym(x) |> _resolve_wrap |> _unresolve_wrap
+        else
+            esc_sym(x) |> _unresolve_wrap
+        end
+        push!(__return__.args, ex)
     end
-    return _unresolve_wrap(ex)
+    return __return__
 end
 
 function _resolve_wrap(ex)

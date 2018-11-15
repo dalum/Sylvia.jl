@@ -4,17 +4,17 @@ using Test
 using Sylvia: commuteswith, isfalse, istrue, sym
 
 @sym obj
-@sym Number :: a b c d
-@sym Bool :: x y z
-@sym Matrix{Float64} :: A B
-@sym Vector{Float64} :: v w
+@sym [Number] a b c d
+@sym [Bool] x y z
+@sym [Matrix{Float64}] A B
+@sym [Vector{Float64}] v w
 
 @testset "identities" begin
     @test obj == sym(:obj)
     @test a == sym(Number, :a)
     @test (a, b) == sym(Number, :a, :b)
-    @test a == S"a::Number" == @!(a::Number)
-    @test a + b == S"(a + b)::Number" == @!((a + b)::Number)
+    @test a == S"a::Number" == @!(a::Number) == @! :a::Number
+    @test a + b == S"(a + b)::Number" == @!((a + b)::Number) == @! :a::Number + :b::Number
     @test S"Float64" == @! Float64
     @test S"AbstractMatrix" == @! AbstractMatrix
 
@@ -32,7 +32,7 @@ using Sylvia: commuteswith, isfalse, istrue, sym
 end
 
 @testset "conversion" begin
-    @sym Float64 :: q r
+    @sym [Float64] q r
     @test convert(Tuple{Sylvia.Sym{Float64}, Sylvia.Sym{Float64}}, (:q, :r)) == (q, r)
     @test convert(Tuple{Sylvia.Sym, Sylvia.Sym}, (:a, :b)) == (a, b)
 end

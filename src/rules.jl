@@ -1,5 +1,5 @@
 let
-    @sym Wild{Any} :: x
+    @sym [Wild{Any}] x
 
     @! x == x = true
     @! zero(zero(x)) = zero(x)
@@ -7,8 +7,7 @@ let
 end
 
 let
-    @sym Wild{Number} :: x y
-    @sym Wild{AbstractMatrix} :: X Y
+    @sym [Wild{Number}] x y [Wild{AbstractMatrix}] X Y
 
     @! (+)(x) = x
     @! (*)(x) = x
@@ -24,7 +23,7 @@ let
 end
 
 let
-    @sym Wild{Bool} :: x y
+    @sym [Wild{Bool}] x y
 
     @! (|)(x) = x
     @! (&)(x) = x

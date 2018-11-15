@@ -60,21 +60,19 @@ expr(t::Tuple; kwargs...) = Expr(:tuple, map(arg -> expr(arg; kwargs...), t)...)
 expr(v::AbstractVector; kwargs...) = Expr(:vect, map(arg -> expr(arg; kwargs...), v)...)
 expr(A::AbstractMatrix; kwargs...) = Expr(:vcat, mapslices(x -> Expr(:row, map(arg -> expr(arg; kwargs...), x)...), A, dims=2)...)
 
-collectsort(x; kwargs...) = sort!(collect(x), by=string; kwargs...)
+getsymbols(x) = map(firstarg, getsyms(x))
 
-getsymbols(x) = map(firstarg, collectsort(getsyms(x)))
-
-getsyms(x) = Set(Sym[])
+getsyms(x) = Sym[]
 getsyms(x::Sym) = getsyms(Val(gethead(x)), x)
 getsyms(::Val, x::Sym) = mapreduce(getsyms, union, getargs(x))
-getsyms(::Val{:symbol}, x::Sym) = Set(Sym[x])
+getsyms(::Val{:symbol}, x::Sym) = Sym[x]
 getsyms(x::Tuple) = mapreduce(getsyms, union, x)
 getsyms(x::AbstractArray) = mapreduce(getsyms, union, x)
 
-getops(x) = Set([])
+getops(x) = []
 getops(x::Sym) = getops(Val(gethead(x)), x)
 getops(::Val, x::Sym) = mapreduce(getops, union, getargs(x))
-getops(::Val{:call}, x::Sym) = union(Set([firstarg(x)]), mapreduce(getops, union, tailargs(x)))
+getops(::Val{:call}, x::Sym) = union([firstarg(x)], mapreduce(getops, union, tailargs(x)))
 getops(x::Tuple) = mapreduce(getops, union, x)
 getops(x::AbstractArray) = mapreduce(getops, union, x)
 

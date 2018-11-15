@@ -1,4 +1,4 @@
-struct NoArgs end
+const DEFAULT_TAG = Any
 
 mutable struct Sym{TAG}
     head::Symbol
@@ -24,7 +24,7 @@ Sym{TAG}(x::Sym) where {TAG} = Sym{TAG}(Val(:noargs), gethead(x), getargs(x)...)
 Sym(x) = Sym{tagof(x)}(x)
 Sym{TAG}(x) where {TAG} = Sym{TAG}(:object, x)
 Sym{TAG}(x::Type) where {TAG} = Sym{TAG}(:type, x)
-Sym{TAG}(x::Symbol) where {TAG} = ((x === :block) && error(); Sym{TAG}(:symbol, x))
+Sym{TAG}(x::Symbol) where {TAG} = Sym{TAG}(:symbol, x)
 Sym{TAG}(x::Function) where {TAG} = Sym{TAG}(:fn, x)
 
 # Expressions
@@ -48,7 +48,7 @@ Sym{TAG}(::Val{:call}, x::Expr) where {TAG} = convert(Sym{TAG}, Sym(Val(:call), 
 
 function Sym(::Val{:macrocall}, x::Expr)
     @assert x.head === :macrocall
-    return Sym{Any}(Val(:noargs), :macrocall, x.args...)
+    return Sym{DEFAULT_TAG}(Val(:noargs), :macrocall, x.args...)
 end
 Sym{TAG}(::Val{:macrocall}, x::Expr) where {TAG} = convert(Sym{TAG}, Sym(Val(:macrocall), x))
 
@@ -69,31 +69,34 @@ macro S_str(str::String)
 end
 
 sym(xs...) = Tuple(sym(x) for x in xs)
-sym(x) = Sym{Any}(x)
+sym(x) = Sym{DEFAULT_TAG}(x)
 sym(::Type{TAG}, xs...) where {TAG} = Tuple(sym(TAG, x) for x in xs)
 sym(::Type{TAG}, x) where {TAG} = Sym{TAG}(x)
 
-macro sym(xs::Symbol...)
-    symbols = map(QuoteNode, xs)
-    xs = map(esc, xs)
-    if length(xs) > 1
-        return :(($(xs...),) = sym($(symbols...)))
-    else
-        return :($(xs...) = sym($(symbols...)))
+macro sym(xs...)
+    TAG = DEFAULT_TAG
+    __return__ = Expr(:block)
+    __return_tuple__ = Expr(:tuple)
+    for x in xs
+        if Meta.isexpr(x, :vect)
+            if length(x.args) == 0
+                TAG = DEFAULT_TAG
+            elseif length(x.args) == 1
+                TAG = esc(x.args[1])
+            elseif length(x.args) > 1
+                TAG = Expr(:curly, :Union, map(esc, x.args)...)
+            else
+                error("malformated tag: $x")
+            end
+            continue
+        end
+        @assert x isa Symbol
+        x, symbol = esc(x), QuoteNode(x)
+        push!(__return__.args, :($x = sym($TAG, $symbol)))
+        push!(__return_tuple__.args, x)
     end
-end
-
-macro sym(TAG::Expr, xs::Symbol...)
-    @assert TAG.head === :(::)
-    TAG, x = TAG.args
-    xs = (x, xs...)
-    symbols = map(QuoteNode, xs)
-    xs = map(esc, xs)
-    if length(xs) > 1
-        return :(($(xs...),) = sym($(esc(TAG)), $(symbols...)))
-    else
-        return :($(xs...) = sym($(esc(TAG)), $(symbols...)))
-    end
+    push!(__return__.args, __return_tuple__)
+    return __return__
 end
 
 ##################################################
@@ -108,6 +111,10 @@ end
 
 unblock_interpolate(x; kwargs...) = x
 unblock_interpolate(x::Symbol; interpolate=true, kwargs...) = interpolate ? Expr(:$, x) : x
+function unblock_interpolate(x::QuoteNode; interpolate=true, kwargs...)
+    x = Expr(:call, Sym, x)
+    return interpolate ? Expr(:$, x) : x
+end
 
 function unblock_interpolate(x::Expr; kwargs...)
     return unblock_interpolate(Val(x.head), x; kwargs...)
@@ -115,13 +122,22 @@ end
 
 function unblock_interpolate(::Val{head}, x::Expr; kwargs...) where {head}
     @assert x.head === head
-    ex = striplines(unblock(Expr(head, map(arg -> unblock_interpolate(arg; kwargs...), x.args)...)))
-    return ex
+    return striplines(unblock(Expr(head, map(arg -> unblock_interpolate(arg; kwargs...), x.args)...)))
+end
+
+function unblock_interpolate(::Val{:quote}, x::Expr; interpolate=true, kwargs...)
+    @assert x.head === :quote
+    return interpolate ? Expr(:$, x) : x
 end
 
 function unblock_interpolate(::Val{:(=)}, x::Expr; kwargs...)
     @assert x.head === :(=)
     return Expr(:(=), x.args[1], unblock_interpolate(x.args[2]; kwargs...))
+end
+
+function unblock_interpolate(::Val{:ref}, x::Expr; kwargs...)
+    @assert x.head === :ref
+    return Expr(:ref, map(arg -> unblock_interpolate(arg; kwargs...), x.args)...)
 end
 
 function unblock_interpolate(::Val{:call}, x::Expr; interpolate=true, kwargs...)
@@ -197,9 +213,9 @@ isatomic(x::Sym) = hashead(x, (:symbol, :fn, :function, :(->), :type, :object))
 @inline tagof(x::Sym{TAG}) where {TAG} = TAG
 @inline tagof(x::T) where {T} = T
 @inline tagof(x::QuoteNode) = typeof(x.value)
-@inline tagof(x::Symbol) = Any
+@inline tagof(x::Symbol) = DEFAULT_TAG
 @inline tagof(x::Expr) = tagof(Val(x.head), x)
-@inline tagof(::Val, x::Expr) = Any
+@inline tagof(::Val, x::Expr) = DEFAULT_TAG
 @inline tagof(::Val{:function}, x::Expr) = Function
 @inline tagof(::Val{:(->)}, x::Expr) = Function
 

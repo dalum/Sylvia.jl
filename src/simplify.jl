@@ -6,9 +6,9 @@ Common subexpression elimination.
 """
 function cse(x::Sym, subxs = Dict{Sym,Sym}())
     if hashead(x, :call)
-        args = collect(tailargs(x))
+        args = tailargs(x)
     else
-        args = collect(getargs(x))
+        args = getargs(x)
     end
 
     for i in eachindex(args)

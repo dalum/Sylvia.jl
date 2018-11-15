@@ -10,7 +10,7 @@ A simple symbolic library with a pretty name.
 ```julia
 julia> using Sylvia
 
-julia> @sym Number :: a b c d
+julia> @sym [Number] a b c d
 (a, b, c, d)
 
 julia> a + b*c + c |> gather
@@ -28,7 +28,7 @@ julia> substitute(a + b + c, a => b, b => c) |> gather
 
 julia> using LinearAlgebra
 
-julia> @sym AbstractMatrix{Float64} :: A B
+julia> @sym [AbstractMatrix{Float64}] A B
 (A, B)
 
 julia> Matrix(A, 2, 2)^2

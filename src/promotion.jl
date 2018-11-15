@@ -5,7 +5,7 @@
 Base.convert(::Type{Sym}, x) = Sym(x)
 Base.convert(::Type{Sym}, x::Sym) = x
 Base.convert(::Type{Sym{T}}, x) where {T} = Sym{T}(x)
-Base.convert(::Type{Sym{T}}, x::Sym) where {T} = Sym{T}(gethead(x), getargs(x)...)
+Base.convert(::Type{Sym{T}}, x::Sym) where {T} = Sym{T}(Val(:noargs), gethead(x), getargs(x)...)
 
 Base.convert(::Type{Tuple{Vararg{Sym,N} where N}}, xs::Tuple) = Tuple(Sym(x) for x in xs)
 Base.convert(::Type{Tuple{Vararg{Sym{T},N} where N}}, xs::Tuple) where {T} = Tuple(Sym{T}(x) for x in xs)
