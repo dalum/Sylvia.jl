@@ -68,6 +68,8 @@ macro !(option::Symbol, x)
         :(unset!(@__context__, $(esc_sym(x))))
     elseif option === :eval
         :($(esc(:eval))($(esc_sym(x))))
+    elseif option === :expr
+        esc_sym(x, interpolate=false)
     elseif option === :resolve
         return _resolve_wrap(esc_sym(x))
     else

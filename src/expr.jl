@@ -1,43 +1,60 @@
 Core.eval(m::Module, x::Sym) = Core.eval(m, expr(x))
 
-expr(x::Sym; kwargs...) = (expr(Val(gethead(x)), x; kwargs...))
+expr(x::Sym; kwargs...) = expr(Val(gethead(x)), x; kwargs...)
 
 function expr(::Val{:object}, x::Sym; kwargs...)
     @assert gethead(x) === :object
-    return firstarg(x)
+    return expr(firstarg(x); kwargs...)
 end
 
-function expr(::Val{:symbol}, x::Sym; annotate=false, kwargs...)
+function expr(::Val{:symbol}, x::Sym{TAG}; annotate=false, type_annotate=false, kwargs...) where {TAG}
     @assert gethead(x) === :symbol
-    if annotate
-        return :($(firstarg(x))::$(tagof(x)))
+    ex = expr(firstarg(x); kwargs...)
+    if annotate || type_annotate && TAG !== Any
+        return :($ex::$TAG)
     else
-        return firstarg(x)
+        return ex
     end
 end
 
 function expr(::Val{:type}, x::Sym; kwargs...)
     @assert gethead(x) === :type
-    return firstarg(x)
+    return expr(firstarg(x); kwargs...)
 end
 
-function expr(::Val{:fn}, x::Sym; kwargs...)
+function expr(::Val{:fn}, x::Sym; qualified_names=false, kwargs...)
     @assert gethead(x) === :fn
-    return nameof(firstarg(x))
+    fn = expr(firstarg(x); kwargs...)
+    if qualified_names
+        return Expr(:., parentmodule(fn), QuoteNode(nameof(fn)))
+    else
+        return nameof(fn)
+    end
 end
 
 function expr(::Val{:function}, x::Sym; kwargs...)
     @assert gethead(x) === :function
     fn, body = getargs(x)
-    return Expr(:function, expr(fn, annotate=true; kwargs...), expr(body; kwargs...))
+    return Expr(:function, expr(fn, type_annotate=true; kwargs...), expr(body; kwargs...))
 end
 
-function expr(::Val{head}, x::Sym; kwargs...) where head
+function expr(::Val{:(->)}, x::Sym; kwargs...)
+    @assert gethead(x) === :(->)
+    fn, body = getargs(x)
+    return Expr(:(->), expr(fn, type_annotate=true; kwargs...), expr(body; kwargs...))
+end
+
+function expr(::Val{head}, x::Sym{TAG}; annotate=false, kwargs...) where {TAG,head}
     @assert gethead(x) === head
-    return Expr(gethead(x), map(arg -> expr(arg; kwargs...), getargs(x))...)
+    ex = Expr(gethead(x), map(arg -> expr(arg; annotate=annotate, kwargs...), getargs(x))...)
+    if annotate
+        return :($ex::$TAG)
+    else
+        return ex
+    end
 end
 
-expr(a; kwargs...) = a # Catch all
+@inline expr(a; kwargs...) = a # Catch all
 
 expr(t::Tuple; kwargs...) = Expr(:tuple, map(arg -> expr(arg; kwargs...), t)...)
 expr(v::AbstractVector; kwargs...) = Expr(:vect, map(arg -> expr(arg; kwargs...), v)...)

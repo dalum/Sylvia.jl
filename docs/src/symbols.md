@@ -1,7 +1,7 @@
 # Symbols
 
 The most basic expression in Sylvia is a symbol.  The simplest way to
-construct a symbol is using the `@sym ..."` pattern:
+construct a symbol is using the `@sym ...` pattern:
 
 ```julia
 julia> using Sylvia;
@@ -39,10 +39,10 @@ julia> tagof(a)
 Number
 ```
 
-## Converting tag
+## Converting tags
 
-To convert a symbol to one with a different tag, the `@! ... :: T` can
-be used:
+To convert a symbol to one with a different tag, the `@! ... :: T`
+pattern is generally used:
 
 ```julia
 julia> @! a::Float64
