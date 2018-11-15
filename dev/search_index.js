@@ -45,15 +45,15 @@ var documenterSearchIndex = {"docs": [
     "page": "Symbols",
     "title": "Symbols",
     "category": "section",
-    "text": "The most basic expression in Sylvia is a symbol.  The simplest way to construct a symbol is using the @sym ...\" pattern:julia> using Sylvia;\n\njulia> @sym a\na\n\njulia> dump(a)\nSylvia.Sym{Any}\n  head: Symbol symbol\n  args: Array{Any}((1,))\n    1: Symbol aHere, the @sym macro creates a Sym object with the head symbol and binds it to the variable a.  The dump(a) showed us the internal structure of a as having the field head with the value :symbol, and the field args with the value: [:a].The type parameter Any seen in Sym{Any} is a type annotation to the symbol referred to as its \"tag\".  It can be accessed either using the type parameter or via the function tagof, similar to the built-in function typeof.  In this case, the symbol a can refer to a variable of any type, and thus its tag is set to Any.  Like types in Julia, Sylvia uses the tag to derive traits.  For instance, Sylvia will assume that expressions with a tag that is a subtype of Number commute under addition and multiplication.  The tag of a symbol can be annotated explicitly upon creation using @sym T :: ... notation:julia> @sym Number :: a\na\n\njulia> tagof(a)\nNumber"
+    "text": "The most basic expression in Sylvia is a symbol.  The simplest way to construct a symbol is using the @sym ... pattern:julia> using Sylvia;\n\njulia> @sym a\na\n\njulia> dump(a)\nSylvia.Sym{Any}\n  head: Symbol symbol\n  args: Array{Any}((1,))\n    1: Symbol aHere, the @sym macro creates a Sym object with the head symbol and binds it to the variable a.  The dump(a) showed us the internal structure of a as having the field head with the value :symbol, and the field args with the value: [:a].The type parameter Any seen in Sym{Any} is a type annotation to the symbol referred to as its \"tag\".  It can be accessed either using the type parameter or via the function tagof, similar to the built-in function typeof.  In this case, the symbol a can refer to a variable of any type, and thus its tag is set to Any.  Like types in Julia, Sylvia uses the tag to derive traits.  For instance, Sylvia will assume that expressions with a tag that is a subtype of Number commute under addition and multiplication.  The tag of a symbol can be annotated explicitly upon creation using @sym T :: ... notation:julia> @sym Number :: a\na\n\njulia> tagof(a)\nNumber"
 },
 
 {
-    "location": "symbols/#Converting-tag-1",
+    "location": "symbols/#Converting-tags-1",
     "page": "Symbols",
-    "title": "Converting tag",
+    "title": "Converting tags",
     "category": "section",
-    "text": "To convert a symbol to one with a different tag, the @! ... :: T can be used:julia> @! a::Float64\na\n\njulia> tagof(@! a::Float64)\nFloat64\n\njulia> tagof(S\"a::Float64\")\nFloat64In the last line above, we encountered the string macro, S\"...\". Broadly speaking, the string macro is similar to the @! macro call: @! resolve ....  We shall delve into the @! macro in later sections."
+    "text": "To convert a symbol to one with a different tag, the @! ... :: T pattern is generally used:julia> @! a::Float64\na\n\njulia> tagof(@! a::Float64)\nFloat64\n\njulia> tagof(S\"a::Float64\")\nFloat64In the last line above, we encountered the string macro, S\"...\". Broadly speaking, the string macro is similar to the @! macro call: @! resolve ....  We shall delve into the @! macro in later sections."
 },
 
 {
