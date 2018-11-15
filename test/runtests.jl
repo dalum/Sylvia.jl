@@ -25,9 +25,9 @@ using Sylvia: commuteswith, isfalse, istrue, sym
     @test iszero(zero(S"Float64"))
     @test isone(one(S"Float64"))
     @test a[1] == getindex(a, 1)
-    @test a[:b] == getindex(a, S"QuoteNode(:b)")
+    @test a[:b] == getindex(a, S":(:b)")
     @test a.b == getproperty(a, :b)
-    @test a.b == getproperty(a, S"QuoteNode(:b)")
+    @test a.b == getproperty(a, S":(:b)")
     @test a(1) == a(S"1") == Sylvia.apply(a, 1)
 end
 
@@ -68,7 +68,7 @@ end
     @test !Sylvia.ismatch(Sylvia.match(a, wild_float))
 end
 
-@testset "commutators" begin
+@testset "default rules" begin
     @test commuteswith(+, a, b)
     @test commuteswith(+, A, B)
     @test commuteswith(+, A, b)
@@ -83,16 +83,16 @@ end
     @test commuteswith(|, x, y)
 end
 
-@testset "contexts" begin
+@testset "dynamic rules" begin
     @scope begin
-        @! iszero(a) = true
-        @! a in b = true
+        @! set iszero(a) = true
+        @! set a in b = true
         @scope begin
-            @! a in b = false
+            @! set a in b = false
             @test iszero(a)
             @test !(a in b)
             @! unset a in b
-            @! iszero(a) = false
+            @! set iszero(a) = false
             @test a in b
             @test !iszero(a)
             @! clear!
@@ -110,7 +110,7 @@ end
     @test Sylvia.expr([a, b, c, d]) == :([a, b, c, d])
     @test Sylvia.getsymbols((a, b, c, d)) == [:a, :b, :c, :d]
     @test Sylvia.getsymbols([a, b, c, d]) == [:a, :b, :c, :d]
-    @test Sylvia.collectsort(Sylvia.getops((a + b, b * c, sin(d)))) == [*, +, sin]
+    @test Sylvia.getops((a + b, b * c, sin(d))) == [+, *, sin]
 end
 
 @testset "function diving" begin
@@ -119,7 +119,7 @@ end
         return 2y
     end
     @test_throws MethodError f(a)
-    Sylvia.@register f 1
+    Sylvia.@register_diveinto f 1
     @test f(a) == 2(a + 1)
 end
 
@@ -138,14 +138,14 @@ end
 @testset "simplification" begin
     @test gather(a + b + c + d + a + b + c + d) == 2a + 2b + 2c + 2d
     @scope begin
-        @! iszero(a) = true
-        @! isone(b) = true
+        @! set iszero(a) = true
+        @! set isone(b) = true
         @test gather(a + b*c + c) == 2c
     end
 
     @scope begin
-        @! istrue(x) = true
-        @! isfalse(y) = true
+        @! set istrue(x) = true
+        @! set isfalse(y) = true
 
         @test gather(x & y) == y
         @test gather(x | y) == x
@@ -166,7 +166,7 @@ end
     @test all(Vector(A, 2) .== [A[1], A[2]])
     @test all(Matrix(A, 2, 2) .== [A[1,1] A[1,2]; A[2,1] A[2,2]])
 
-    @! length(v) = 4
+    @! set length(v) = 4
 
     @test collect(v) == Vector(v, 4)
     for (i, vi) in enumerate(v)
@@ -177,7 +177,7 @@ end
 @testset "@!" begin
     function g end
     @test @!(g(a)) == S"g(a)"
-    @! g(a) = a + 1
+    @! set g(a) = a + 1
     @test a + 1 == @! resolve g(a)
 end
 
@@ -186,10 +186,9 @@ function h end
 
 @testset "function generation" begin
     X = randn(2, 2)
-    f = @λ (a, b, c) => a + b + c
-    g = @λ (A,) => Matrix(A, 2, 2)^2
-
     x = a + b + c
+    @! eval :f(a, b, c) = x
+    @! eval :g(A) = A^2
     @! eval function h(a, b, c)
         x
     end

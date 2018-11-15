@@ -10,7 +10,7 @@ end
 function expr(::Val{:symbol}, x::Sym{TAG}; annotate=false, type_annotate=false, kwargs...) where {TAG}
     @assert gethead(x) === :symbol
     ex = expr(firstarg(x); kwargs...)
-    if annotate || type_annotate && TAG !== Any
+    if annotate || (type_annotate && TAG !== Any)
         return :($ex::$TAG)
     else
         return ex
@@ -36,6 +36,12 @@ function expr(::Val{:function}, x::Sym; kwargs...)
     @assert gethead(x) === :function
     fn, body = getargs(x)
     return Expr(:function, expr(fn, type_annotate=true; kwargs...), expr(body; kwargs...))
+end
+
+function expr(::Val{:(=)}, x::Sym; kwargs...)
+    @assert gethead(x) === :(=)
+    lhs, rhs = getargs(x)
+    return Expr(:(=), expr(lhs, type_annotate=true; kwargs...), expr(rhs; kwargs...))
 end
 
 function expr(::Val{:(->)}, x::Sym; kwargs...)

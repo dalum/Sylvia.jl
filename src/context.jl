@@ -54,10 +54,7 @@ unset!(ctx::Context, x::Sym) = delete!(ctx, x)
 ##################################################
 
 macro !(x)
-    ex = if Meta.isexpr(x, :(=))
-        key, val = x.args
-        :(set!(@__context__, $(esc_sym(key)), $(esc_sym(val))))
-    elseif x === :clear!
+    ex = if x === :clear!
         :(empty!(@__context__().data))
     else
         esc_sym(x)
@@ -65,23 +62,26 @@ macro !(x)
     return _unresolve_wrap(ex)
 end
 
-macro !(option::Symbol, xs...)
-    __return__ = Expr(:block)
-    for x in xs
-        ex = if option === :unset
-            :(unset!(@__context__, $(esc_sym(x)))) |> _unresolve_wrap
-        elseif option === :eval
-            :($(esc(:eval))($(esc_sym(x)))) |> _unresolve_wrap
-        elseif option === :expr
-            esc_sym(x, interpolate=false) |> _unresolve_wrap
-        elseif option === :resolve
-            return esc_sym(x) |> _resolve_wrap |> _unresolve_wrap
+macro !(option::Symbol, x)
+    ex = if option === :set
+        if Meta.isexpr(x, :(=))
+            key, val = x.args
+            :(set!(@__context__, $(esc_sym(key)), $(esc_sym(val))))
         else
-            esc_sym(x) |> _unresolve_wrap
+            error("missing `=` at top-level in expression: $x")
         end
-        push!(__return__.args, ex)
+    elseif option === :unset
+        :(unset!(@__context__, $(esc_sym(x))))
+    elseif option === :eval
+        :($(esc(:eval))($(esc_sym(x))))
+    elseif option === :expr
+        esc_sym(x, interpolate=false)
+    elseif option === :resolve
+        return _resolve_wrap(esc_sym(x))
+    else
+        esc_sym(x)
     end
-    return __return__
+    return _unresolve_wrap(ex)
 end
 
 function _resolve_wrap(ex)

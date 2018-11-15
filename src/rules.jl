@@ -1,35 +1,35 @@
 let
     @sym [Wild{Any}] x
 
-    @! x == x = true
-    @! zero(zero(x)) = zero(x)
-    @! one(one(x)) = one(x)
+    @! set x == x = true
+    @! set zero(zero(x)) = zero(x)
+    @! set one(one(x)) = one(x)
 end
 
 let
     @sym [Wild{Number}] x y [Wild{AbstractMatrix}] X Y
 
-    @! (+)(x) = x
-    @! (*)(x) = x
+    @! set (+)(x) = x
+    @! set (*)(x) = x
 
-    @! commuteswith(+, x, y) = true
-    @! commuteswith(+, X, y) = true
-    @! commuteswith(+, x, Y) = true
-    @! commuteswith(+, X, Y) = true
+    @! set commuteswith(+, x, y) = true
+    @! set commuteswith(+, X, y) = true
+    @! set commuteswith(+, x, Y) = true
+    @! set commuteswith(+, X, Y) = true
 
-    @! commuteswith(*, x, y) = true
-    @! commuteswith(*, X, y) = true
-    @! commuteswith(*, x, Y) = true
+    @! set commuteswith(*, x, y) = true
+    @! set commuteswith(*, X, y) = true
+    @! set commuteswith(*, x, Y) = true
 end
 
 let
     @sym [Wild{Bool}] x y
 
-    @! (|)(x) = x
-    @! (&)(x) = x
+    @! set (|)(x) = x
+    @! set (&)(x) = x
 
-    @! commuteswith(&, x, y) = true
-    @! commuteswith(|, x, y) = true
+    @! set commuteswith(&, x, y) = true
+    @! set commuteswith(|, x, y) = true
 end
 
 # Create a new context for user rules

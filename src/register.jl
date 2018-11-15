@@ -6,7 +6,7 @@ macro register(name, N::Integer)
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
     e = quote
         function $name($(arglist...))
-            diveinto($name, $(symbols...))
+            apply($name, $(symbols...))
         end
     end
     push!(ret.args, e)
@@ -14,7 +14,7 @@ macro register(name, N::Integer)
     return ret
 end
 
-macro register_atomic(name, N::Integer)
+macro register_diveinto(name, N::Integer)
     name = esc(name)
     symbols = Any[gensym("symvar") for _ in 1:N]
     ret = register_promote(name, symbols)
@@ -22,7 +22,7 @@ macro register_atomic(name, N::Integer)
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
     e = quote
         function $name($(arglist...))
-            apply($name, $(symbols...))
+            diveinto($name, $(symbols...))
         end
     end
     push!(ret.args, e)

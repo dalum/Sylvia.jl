@@ -146,16 +146,17 @@ const MAX_GATHER_ITERATIONS = 10
 
 gather(x) = gather!(deepcopy(x))
 function gather!(x)
-    x_ = x
+    x_ = deepcopy(x)
     for _ in 1:MAX_GATHER_ITERATIONS
-        x = _gather_one_iteration!(x_)
-        if x == x_ === true
+        _gather_one_iteration!(x_)
+        if (x == x_) === true
             break
         else
-            x_ = x
+            x = x_
+            x_ = deepcopy(x)
         end
     end
-    return x
+    return x_
 end
 
 _gather_one_iteration!(x) = x

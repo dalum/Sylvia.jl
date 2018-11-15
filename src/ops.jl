@@ -11,7 +11,7 @@ for op in (:+, :-, :*, :&, :|, :!,
            :cosh, :sinh, :tanh, :sech, :csch, :coth,
            :acosh, :asinh, :atanh, :asech, :acsch, :acoth,
            :iseven, :isinf, :isnan, :isodd)
-    @eval @register_atomic $(:(Base.$op)) 1
+    @eval @register $(:(Base.$op)) 1
 end
 Base.adjoint(x::Sym) = combine(Symbol("'"), x)
 Base.zero(::Type{Sym{TAG}}) where TAG = apply(zero, Sym(TAG))
@@ -20,7 +20,7 @@ Base.oneunit(::Type{Sym{TAG}}) where TAG = apply(oneunit, Sym(TAG))
 
 # Two-arg operators
 for op in (:-, :/, :\, ://, :^, :÷, :isless, :<, :&, :|, :(==))
-    @eval @register_atomic $(:(Base.$op)) 2
+    @eval @register $(:(Base.$op)) 2
 end
 Base.getindex(x::Sym, val::Symbol) = Base.getindex(promote(x, QuoteNode(val))...)
 Base.getindex(x::Sym, vals...) = Base.getindex(promote(x, map(val -> val isa Symbol ? QuoteNode(val) : val, vals)...)...)
@@ -34,7 +34,7 @@ Base.in(x::Sym, y::Sym) = apply(in, x, y)
 
 # Multi-arg operators
 for op in (:+, :*)
-    @eval @register_atomic $(:(Base.$op)) 2
+    @eval @register $(:(Base.$op)) 2
     @eval $(:(Base.$op))(xs::Sym...) = apply($(:(Base.$op)), xs...)
 end
 
@@ -44,10 +44,10 @@ end
 
 # One-arg operators
 for op in (:norm,)
-    @eval @register_atomic $(:(LinearAlgebra.$op)) 1
+    @eval @register $(:(LinearAlgebra.$op)) 1
 end
 
 # Two-arg operators
 for op in (:dot, :cross)
-    @eval @register_atomic $(:(LinearAlgebra.$op)) 2
+    @eval @register $(:(LinearAlgebra.$op)) 2
 end

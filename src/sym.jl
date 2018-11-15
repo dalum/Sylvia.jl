@@ -132,7 +132,7 @@ end
 
 function unblock_interpolate(::Val{:(=)}, x::Expr; kwargs...)
     @assert x.head === :(=)
-    return Expr(:(=), x.args[1], unblock_interpolate(x.args[2]; kwargs...))
+    return Expr(:(=), map(arg -> unblock_interpolate(arg; kwargs...), x.args)...)
 end
 
 function unblock_interpolate(::Val{:ref}, x::Expr; kwargs...)
