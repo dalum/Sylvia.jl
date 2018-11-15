@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Expressions · Sylvia</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><h1>Sylvia</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../">Home</a></li><li><a class="toctext" href="../basics/">Basics</a></li><li><a class="toctext" href="../symbols/">Symbols</a></li><li class="current"><a class="toctext" href>Expressions</a><ul class="internal"><li><a class="toctext" href="#Rules-1">Rules</a></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li><a href>Expressions</a></li></ul><a class="edit-page" href="https://github.com/dalum/Sylvia.jl/blob/master/docs/src/expressions.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Expressions</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Expressions-1" href="#Expressions-1">Expressions</a></h1><p>Sylvia provides methods for a variety of functions in base Julia, which allows expressions to be constructed by simply applying functions to symbols:</p><pre><code class="language-julia">julia&gt; @sym Number :: a b
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Expressions · Sylvia</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><h1>Sylvia</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../">Home</a></li><li><a class="toctext" href="../basics/">Basics</a></li><li><a class="toctext" href="../symbols/">Symbols</a></li><li class="current"><a class="toctext" href>Expressions</a><ul class="internal"><li><a class="toctext" href="#Functions-1">Functions</a></li><li><a class="toctext" href="#Calling-symbols-1">Calling symbols</a></li><li><a class="toctext" href="#Rules-1">Rules</a></li><li><a class="toctext" href="#Interpolation-1">Interpolation</a></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li><a href>Expressions</a></li></ul><a class="edit-page" href="https://github.com/dalum/Sylvia.jl/blob/master/docs/src/expressions.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Expressions</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Expressions-1" href="#Expressions-1">Expressions</a></h1><p>Sylvia provides methods for a variety of functions in base Julia, which allows expressions to be constructed by simply applying functions to symbols:</p><pre><code class="language-julia">julia&gt; @sym [Number] a b
 (a, b)
 
 julia&gt; a + b
@@ -23,10 +23,10 @@ Sylvia.Sym{Number}
     3: Sylvia.Sym{Number}
       head: Symbol symbol
       args: Array{Any}((1,))
-        1: Symbol b</code></pre><p>As can be seen in the example above, Sylvia uses the tag of <code>a</code> and <code>b</code> to correctly derive the tag of the expression <code>a + b</code> as <code>Number</code>.</p><div class="admonition note"><div class="admonition-title">Note</div><div class="admonition-text"><p>The function responsible for deriving the tag in Sylvia is called <code>Sylvia.promote_tag</code>.  Sylvia relies on Julia for most of the promotion mechanisms, with additional methods for a few special cases to handle correct promotion.</p></div></div><p>While the most common base functions have been overloaded to work with <code>Sym</code>s, user–defined functions and functions in non–base libraries will, in general, not have methods for <code>Sym</code>s.  Sylvia provides two means of working with functions that have not been overloaded: <code>Sylvia.@register_atomic</code>, and manual wrapping:</p><pre><code class="language-julia">julia&gt; function f end
+        1: Symbol b</code></pre><p>As can be seen in the example above, Sylvia uses the tag of <code>a</code> and <code>b</code> to correctly derive the tag of the expression <code>a + b</code> as <code>Number</code>.</p><div class="admonition note"><div class="admonition-title">Note</div><div class="admonition-text"><p>The function responsible for deriving the tag in Sylvia is called <code>Sylvia.promote_tag</code>.  Sylvia relies on Julia for most of the promotion mechanisms, with additional methods for a few special cases to handle correct promotion.</p></div></div><h2><a class="nav-anchor" id="Functions-1" href="#Functions-1">Functions</a></h2><p>While the most common base functions have been overloaded to work with <code>Sym</code>s, user–defined functions and functions in non–base libraries will, in general, not have methods for <code>Sym</code>s.  Sylvia provides two means of working with functions that have not been overloaded: <code>Sylvia.@register</code>, and manual wrapping:</p><pre><code class="language-julia">julia&gt; function f end
 f (generic function with 0 methods)
 
-julia&gt; Sylvia.@register_atomic f 1
+julia&gt; Sylvia.@register f 1
 f (generic function with 1 method)
 
 julia&gt; f(a)
@@ -36,7 +36,7 @@ julia&gt; function g end
 g (generic function with 0 methods)
 
 julia&gt; @! g(a)
-g(a)</code></pre><p>In the first example above, we registered a function, <code>f</code>, with <code>1</code> argument.  To &quot;register&quot; <code>f</code>, the <code>Sylvia.@register_atomic f N</code> macro creates methods for <code>f</code> <code>N</code> arguments of type <code>Sym</code>, including promoting methods for all combinations involving at least one <code>Sym</code> and arguments of <code>Any</code> type.  The all–<code>Sym</code> method then dispatches to <code>Sylvia.apply(f, args...)</code>, which will create the <code>f(args...)</code> expression.</p><p>In the second example, we declared the function <code>g</code>, and then applied it to <code>a</code> inside the <code>@!</code> macro.  When applying functions inside the <code>@!</code> macro, Sylvia will check if any methods exist for the given function and arguments.  If such a method exists, it will be applied and otherwise, the expression will be returned.  In this case, no method existed for <code>g(::Sym)</code>.  This pattern works for any type of function and argument, and so we could also apply it to the number <code>10</code>:</p><pre><code class="language-julia">julia&gt; @! g(10)
+g(a)</code></pre><p>In the first example above, we registered a function, <code>f</code>, with <code>1</code> argument.  To &quot;register&quot; <code>f</code>, the <code>Sylvia.@register f N</code> macro creates methods for <code>f</code> <code>N</code> arguments of type <code>Sym</code>, including promoting methods for all combinations involving at least one <code>Sym</code> and arguments of <code>Any</code> type.  The all–<code>Sym</code> method then dispatches to <code>Sylvia.apply(f, args...)</code>, which will create the <code>f(args...)</code> expression.</p><p>In the second example, we declared the function <code>g</code>, and then applied it to <code>a</code> inside the <code>@!</code> macro.  When applying functions inside the <code>@!</code> macro, Sylvia will check if any methods exist for the given function and arguments.  If such a method exists, it will be applied and otherwise, the expression will be returned.  In this case, no method existed for <code>g(::Sym)</code>.  This pattern works for any type of function and argument, and so we could also apply it to the number <code>10</code>:</p><pre><code class="language-julia">julia&gt; @! g(10)
 g(10)
 
 julia&gt; g(x::Integer) = x^2
@@ -46,4 +46,77 @@ julia&gt; @! g(10)
 100
 
 julia&gt; @! g(10.0)
-g(10.0)</code></pre><p>Here we saw that defining a method for <code>g(::Integer)</code> suddenly allowed <code>@! g(10)</code> to call that method.</p><h2><a class="nav-anchor" id="Rules-1" href="#Rules-1">Rules</a></h2><footer><hr/><a class="previous" href="../symbols/"><span class="direction">Previous</span><span class="title">Symbols</span></a></footer></article></body></html>
+g(10.0)</code></pre><p>Here we saw that defining a method for <code>g(::Integer)</code> suddenly allowed <code>@! g(10)</code> to eagerly call that method.</p><h2><a class="nav-anchor" id="Calling-symbols-1" href="#Calling-symbols-1">Calling symbols</a></h2><p>In addition to calling functions, Sylvia allows any <code>Sym</code> object to be called, indexed and property accessed arbitrarily.  Together with unbound symbols, this can be useful for defining a function:</p><pre><code class="language-julia">julia&gt; ex = @! function :h1(a, b, :c)
+           return a^2 + b * :c
+       end
+function h1(a::Number, b::Number, c)
+    return a ^ 2 + b * c
+end
+
+julia&gt; eval(ex)
+h1 (generic function with 1 method)
+
+julia&gt; h1(1, 2, 3)
+7</code></pre><p>Here we saw that <code>Sym</code>s can be <code>eval</code>ed just like <code>Expr</code> objects in Julia.  In fact, the <code>Sym</code> object itself prints code that can be copy–pasted directly into a file.  Because <code>eval</code>ing code is a common task, the <code>@!</code> macro allows the keyword <code>eval</code> to be put before expressions, which will <code>eval</code> the resulting <code>Sym</code> in the current module:</p><pre><code class="language-julia">julia&gt; @! eval function :h2(a, b, :c)
+           return a^2 + b * :c
+       end
+h2 (generic function with 1 method)
+
+julia&gt; h2(1, 2, 3)
+7</code></pre><h2><a class="nav-anchor" id="Rules-1" href="#Rules-1">Rules</a></h2><p>Another use of the <code>@!</code> macro is for defining rules.  Rules in Sylvia are a set of patterns that transform expressions eagerly.  For instance, we could add a rule that transforms expressions of the type <code>a + a</code> to <code>2a</code>.  The keyword <code>set</code> is used to add a new rule:</p><pre><code class="language-julia">julia&gt; a + a
+a + a
+
+julia&gt; @! set a + a = 2a
+OrderedCollections.OrderedDict{Sylvia.Sym,Sylvia.Sym} with 1 entry:
+  a + a =&gt; 2a
+
+julia&gt; a + a
+2a
+
+julia&gt; b + b
+b + b</code></pre><p>Note that the rule we created <em>only</em> applies to symbols that are called <code>a</code> and whose tag is a subtype of the tag for which the rule was created.  To allow overriding rules, expressions inside the <code>@!</code> macro will not be resolved, unless the keyword <code>resolve</code> is given:</p><pre><code class="language-julia">julia&gt; @! set a + a = 2.01a
+
+julia&gt; @! a + a
+a + a
+
+julia&gt; @! resolve a + a
+2.01a</code></pre><p>Using the resolve keyword and unbound symbols, we see that the rule only apply to symbols called <code>a</code>, if they have tag that is a subtype of <code>Number</code>:</p><pre><code class="language-julia">julia&gt; @! resolve :a + :a
+a + a
+
+julia&gt; @! resolve :a::Float64 + :a::Float64
+2.01a</code></pre><p>To remove a rule, we use the keyword <code>unset</code>:</p><pre><code class="language-julia">julia&gt; @! unset a + a
+Sylvia.Context with 0 entries
+
+julia&gt; a + a
+a + a</code></pre><p>For inline usage, the <code>@! resolve ...</code> pattern can be a bit verbose. For this reason, the <code>S&quot;...&quot;</code> pattern is often more convenient.  The string macro pattern also obeys the resolving context in which it occurs, making it more flexible in some cases:</p><pre><code class="language-julia">julia&gt; S&quot;:a::Float64 + :a::Float64&quot;
+2.01a
+
+julia&gt; @! S&quot;:a::Float64 + :a::Float64&quot;
+a + a</code></pre><h2><a class="nav-anchor" id="Interpolation-1" href="#Interpolation-1">Interpolation</a></h2><p>In some sense, <code>Sym</code>s can be said to follow an opposite interpolation scheme when compared to <code>Expr</code> objects in Julia.  This is best illustrated by an example:</p><pre><code class="language-julia">julia&gt; x = a + b
+a + b
+
+julia&gt; @! function :f(a, b)
+           return x
+       end
+function f(a::Number, b::Number)
+    return a + b
+end
+
+julia&gt; @! function :f(a, b)
+           return :x
+       end
+function f(a::Number, b::Number)
+    return x
+end</code></pre><p>In the first line above, we bind the Julia variable <code>x</code> to the <code>Sym</code> representing the addition of <code>a</code> and <code>b</code>.  In the second, we create a <code>Sym</code> representing a function definition using the arguments <code>a</code> and <code>b</code>.  The function body returns <code>x</code>, but is eagerly transformed into <code>a + b</code>, since that is what <code>x</code> has been bound to.  In the third line, the function definition is repeated, but this time using an unbound symbol <code>x</code>.  This prevents interpolation of <code>x</code>.  Compare this with the equivalent Julia expressions, which uses <code>$</code> for interpolation:</p><pre><code class="language-julia">julia&gt; :(function f(a, b)
+           return x
+       end)
+:(function f(a, b)
+      return x
+  end)
+
+julia&gt; :(function f(a, b)
+           return $x
+       end)
+:(function f(a, b)
+      return a + b
+  end)</code></pre><footer><hr/><a class="previous" href="../symbols/"><span class="direction">Previous</span><span class="title">Symbols</span></a></footer></article></body></html>
