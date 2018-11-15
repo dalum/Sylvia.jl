@@ -152,7 +152,7 @@ function gather!(x)
         if (x == x_) === true
             break
         else
-            x, x_ = x_, deepcopy(x)
+            x, x_ = x_, deepcopy(x_)
         end
     end
     return x_

@@ -7,7 +7,7 @@ construct a symbol is using the `@sym ...` pattern:
 julia> using Sylvia;
 
 julia> @sym a
-a
+@! a
 
 julia> dump(a)
 Sylvia.Sym{Any}
@@ -35,7 +35,7 @@ annotated explicitly upon creation using `@sym [T] ...` notation:
 
 ```julia
 julia> @sym [Number] a
-a
+@! a
 
 julia> tagof(a)
 Number
@@ -48,7 +48,7 @@ To convert a symbol to one with a different tag, the `@! (...)::T` or
 
 ```julia
 julia> @! a::Float64
-a
+@! a
 
 julia> tagof(@! a::Float64)
 Float64
@@ -72,10 +72,10 @@ either the `@!` macro or the `S"..."` string macro:
 
 ```julia
 julia> @! :c
-c
+@! c
 
 julia> S":c"
-c
+@! c
 
 julia> tagof(@! :c)
 Any

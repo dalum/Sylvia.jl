@@ -11,28 +11,28 @@ A simple symbolic library with a pretty name.
 julia> using Sylvia
 
 julia> @sym [Number] a b c d
-(a, b, c, d)
+(@! a, @! b, @! c, @! d)
 
 julia> a + b*c + c |> gather
-a + b * c + c
+@! a + b * c + c
 
 julia> @! set iszero(a) = true; # a == zero(a)
 
 julia> @! set isone(b) = true; # b == one(b)
 
 julia> a + b*c + c |> gather
-2c
+@! 2c
 
 julia> substitute(a + b + c, a => b, b => c) |> gather
-3c
+@! 3c
 
 julia> using LinearAlgebra
 
 julia> @sym [AbstractMatrix{Float64}] A B
-(A, B)
+(@! A, @! B)
 
 julia> Matrix(A, 2, 2)^2
-2×2 Array{Sylvia.Sym{Float64},2}:
+2×2 Array{Sylvia.Sym{Any},2}:
  A[1, 1] * A[1, 1] + A[1, 2] * A[2, 1]  A[1, 1] * A[1, 2] + A[1, 2] * A[2, 2]
  A[2, 1] * A[1, 1] + A[2, 2] * A[2, 1]  A[2, 1] * A[1, 2] + A[2, 2] * A[2, 2]
 
@@ -55,11 +55,11 @@ julia> methods(f)
 [1] f(c::Number, d::Number) in Main
 
 julia> Sylvia.diveinto(f, c, d) # `c` and `d` are not of type `Number`
-(0 + (c' * c + (c * d)' * (c * d))) + (d' * d + (c + d ^ 2)' * (c + d ^ 2))
+@! (0 + (c' * c + (c * d)' * (c * d))) + (d' * d + (c + d ^ 2)' * (c + d ^ 2))
 
 julia> using BenchmarkTools
 
 julia> @btime f(1, 2)
-  0.025 ns (0 allocations: 0 bytes)
+  0.026 ns (0 allocations: 0 bytes)
 34
 ```

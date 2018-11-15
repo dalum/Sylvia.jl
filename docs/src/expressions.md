@@ -6,13 +6,13 @@ functions to symbols:
 
 ```julia
 julia> @sym [Number] a b
-(a, b)
+(@! a, @! b)
 
 julia> a + b
-a + b
+@! a + b
 
 julia> acos(sin(a) + cos(b))
-acos(sin(a) + cos(b))
+@! acos(sin(a) + cos(b))
 
 julia> dump(a + b)
 Sylvia.Sym{Number}
@@ -57,13 +57,13 @@ julia> Sylvia.@register f 1
 f (generic function with 1 method)
 
 julia> f(a)
-f(a)
+@! f(a)
 
 julia> function g end
 g (generic function with 0 methods)
 
 julia> @! g(a)
-g(a)
+@! g(a)
 ```
 
 In the first example above, we registered a function, `f`, with `1`
@@ -85,20 +85,27 @@ function and argument, and so we could also apply it to the number
 
 ```julia
 julia> @! g(10)
-g(10)
+@! g(10)
 
 julia> g(x::Integer) = x^2
 g (generic function with 1 method)
 
-julia> @! g(10)
+julia> g(10)
 100
 
+julia> @! g(10)
+@! 100
+
 julia> @! g(10.0)
-g(10.0)
+@! g(10.0)
 ```
 
 Here we saw that defining a method for `g(::Integer)` suddenly allowed
 `@! g(10)` to eagerly call that method.
+
+!!! note
+    When calling inside the `@!` macro, the result is always converted
+    to a `Sym`.
 
 ## Calling symbols
 
@@ -110,7 +117,7 @@ unbound symbols, this can be useful for defining a function:
 julia> ex = @! function :h1(a, b, :c)
            return a^2 + b * :c
        end
-function h1(a::Number, b::Number, c)
+@! function h1(a::Number, b::Number, c)
     return a ^ 2 + b * c
 end
 
@@ -147,17 +154,17 @@ instance, we could add a rule that transforms expressions of the type
 
 ```julia
 julia> a + a
-a + a
+@! a + a
 
 julia> @! set a + a = 2a
 OrderedCollections.OrderedDict{Sylvia.Sym,Sylvia.Sym} with 1 entry:
   a + a => 2a
 
 julia> a + a
-2a
+@! 2a
 
 julia> b + b
-b + b
+@! b + b
 ```
 
 Note that the rule we created *only* applies to symbols that are
@@ -169,10 +176,10 @@ macro will not be resolved, unless the keyword `resolve` is given:
 julia> @! set a + a = 2.01a
 
 julia> @! a + a
-a + a
+@! a + a
 
 julia> @! resolve a + a
-2.01a
+@! 2.01a
 ```
 
 Using the resolve keyword and unbound symbols, we see that the rule
@@ -181,10 +188,10 @@ of `Number`:
 
 ```julia
 julia> @! resolve :a + :a
-a + a
+@! a + a
 
 julia> @! resolve :a::Float64 + :a::Float64
-2.01a
+@! 2.01a
 ```
 
 To remove a rule, we use the keyword `unset`:
@@ -194,7 +201,7 @@ julia> @! unset a + a
 Sylvia.Context with 0 entries
 
 julia> a + a
-a + a
+@! a + a
 ```
 
 For inline usage, the `@! resolve ...` pattern can be a bit verbose.
@@ -203,11 +210,13 @@ string macro pattern also obeys the resolving context in which it
 occurs, making it more flexible in some cases:
 
 ```julia
+julia> @! set a + a = 2.01a;
+
 julia> S":a::Float64 + :a::Float64"
-2.01a
+@! 2.01a
 
 julia> @! S":a::Float64 + :a::Float64"
-a + a
+@! a + a
 ```
 
 ## Interpolation
@@ -217,19 +226,19 @@ scheme when compared to `Expr` objects in Julia.  This is best
 illustrated by an example:
 ```julia
 julia> x = a + b
-a + b
+@! a + b
 
 julia> @! function :f(a, b)
            return x
        end
-function f(a::Number, b::Number)
+@! function f(a::Number, b::Number)
     return a + b
 end
 
 julia> @! function :f(a, b)
            return :x
        end
-function f(a::Number, b::Number)
+@! function f(a::Number, b::Number)
     return x
 end
 ```
@@ -255,6 +264,6 @@ julia> :(function f(a, b)
            return $x
        end)
 :(function f(a, b)
-      return a + b
+      return (@! a + b)
   end)
 ```
