@@ -19,7 +19,7 @@ Sylvia.Sym{Number}
   head: Symbol call
   args: Array{Any}((3,))
     1: Sylvia.Sym{typeof(+)}
-      head: Symbol function
+      head: Symbol fn
       args: Array{Any}((1,))
         1: + (function of type typeof(+))
     2: Sylvia.Sym{Number}
