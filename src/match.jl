@@ -9,12 +9,13 @@ match(x::Sym{<:TAG}, y::Sym{Wild{TAG}}) where {TAG} = MatchPairs([y => x])
 match(x::Sym{Wild{T}}, y::Sym{Wild{S}}) where {T,S} = MatchPairs(false)
 match(x::Sym{Wild{T}}, y::Sym{Wild{S}}) where {S,T<:S} = MatchPairs([x => y])
 
-function match(x::Sym, y::Sym)
+match(x::Sym, y::Sym) = MatchPairs(false)
+function match(x::Sym{<:T}, y::Sym{T}) where T
     gethead(x) === gethead(y) || return MatchPairs(false)
     xargs, yargs = getargs(x), getargs(y)
     length(xargs) == length(yargs) || return MatchPairs(false)
-    tmp = mapreduce(x -> match(x[1], x[2]), union, zip(xargs, yargs))
-    return any(isfalse, tmp) ? MatchPairs(false) : tmp
+    m = mapreduce(x -> match(x[1], x[2]), union, zip(xargs, yargs))
+    return any(isfalse, m) ? MatchPairs(false) : m
 end
 
 function ismatch(pairs::MatchPairs)
