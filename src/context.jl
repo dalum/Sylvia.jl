@@ -1,9 +1,9 @@
 mutable struct Context <: AbstractDict{Sym,Sym}
     parent::Union{Context,Nothing}
     data::OrderedDict{Sym,Sym}
-    resolve::Bool
+    resolve_stack::Vector{Bool}
 end
-Context(parent::Union{Context,Nothing}, pairs::Pair{<:Sym,<:Sym}...) = Context(parent, OrderedDict(pairs...), true)
+Context(parent::Union{Context,Nothing}, pairs::Pair{<:Sym,<:Sym}...) = Context(parent, OrderedDict(pairs...), [true])
 
 Base.length(ctx::Context) = length(ctx.data)
 Base.iterate(ctx::Context) = iterate(ctx.data)
@@ -22,6 +22,8 @@ function Base.iterate(r::Base.Iterators.Reverse{Context}, x)
     return (res[1], x + 1)
 end
 
+resolving(ctx::Context) = ctx.resolve_stack[end]
+
 const GLOBAL_CONTEXT = Context(nothing)
 const ACTIVE_CONTEXT = Ref(GLOBAL_CONTEXT)
 
@@ -30,7 +32,7 @@ macro __context__()
 end
 
 function query!(x::Sym, ctx::Context = ACTIVE_CONTEXT[])
-    ctx.resolve || return x
+    resolving(ctx) || return x
 
     for (key, val) in Iterators.reverse(ctx)
         m = match(x, key)
@@ -81,17 +83,13 @@ end
 function _resolve_wrap(ex)
     __return__ = gensym("return")
     return quote
-        if !@__context__().resolve
-            $__return__ = nothing
-            try
-                @__context__().resolve = true
-                $__return__ = $ex
-            finally
-                @__context__().resolve = false
-                $__return__
-            end
-        else
-            $ex
+        push!(@__context__().resolve_stack, true)
+        $__return__ = nothing
+        try
+            $__return__ = $ex
+        finally
+            pop!(@__context__().resolve_stack)
+            $__return__
         end
     end
 end
@@ -99,17 +97,13 @@ end
 function _unresolve_wrap(ex)
     __return__ = gensym("return")
     return quote
-        if @__context__().resolve
-            $__return__ = nothing
-            try
-                @__context__().resolve = false
-                $__return__ = $ex
-            finally
-                @__context__().resolve = true
-                $__return__
-            end
-        else
-            $ex
+        push!(@__context__().resolve_stack, false)
+        $__return__ = nothing
+        try
+            $__return__ = $ex
+        finally
+            pop!(@__context__().resolve_stack)
+            $__return__
         end
     end
 end
