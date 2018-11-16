@@ -157,29 +157,22 @@ julia> a + a
 @! a + a
 
 julia> @! set a + a = 2a
-OrderedCollections.OrderedDict{Sylvia.Sym,Sylvia.Sym} with 1 entry:
+Sylvia.Context with 1 entry:
   a + a => 2a
 
 julia> a + a
 @! 2a
-
-julia> b + b
-@! b + b
 ```
 
-Note that the rule we created *only* applies to symbols that are
-called `a` and whose tag is a subtype of the tag for which the rule
-was created.  To allow overriding rules, expressions inside the `@!`
-macro will not be resolved, unless the keyword `resolve` is given:
+To allow overriding rules, expressions inside the `@!` macro will not
+be resolved, unless the keyword `resolve` is given:
 
 ```julia
-julia> @! set a + a = 2.01a
-
 julia> @! a + a
 @! a + a
 
 julia> @! resolve a + a
-@! 2.01a
+@! 2a
 ```
 
 Using the resolve keyword and unbound symbols, we see that the rule
@@ -190,8 +183,11 @@ of `Number`:
 julia> @! resolve :a + :a
 @! a + a
 
+julia> @! resolve :b::Float64 + :b::Float64
+@! b + b
+
 julia> @! resolve :a::Float64 + :a::Float64
-@! 2.01a
+@! 2a
 ```
 
 To remove a rule, we use the keyword `unset`:

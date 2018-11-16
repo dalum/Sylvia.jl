@@ -12,6 +12,7 @@ Base.iterate(ctx::Context, x) = iterate(ctx.data, x)
 Base.getindex(ctx::Context, key) = getindex(ctx.data, key)
 Base.setindex!(ctx::Context, val, key) = setindex!(ctx.data, val, key)
 Base.delete!(ctx::Context, key) = (delete!(ctx.data, key); ctx)
+Base.empty!(ctx::Context) = (empty!(ctx.data); ctx)
 
 Base.iterate(r::Base.Iterators.Reverse{Context}) = Base.iterate(r::Base.Iterators.Reverse{Context}, 1)
 function Base.iterate(r::Base.Iterators.Reverse{Context}, x)
@@ -87,7 +88,7 @@ end
 function _exec(x, token::Symbol=:pass; options...)
     x = if token === :clear!
         if x === nothing
-            :(empty!(@__context__().data))
+            :(empty!(@__context__))
         else
             error("expression following `clear!`: $x is not `nothing`")
         end
@@ -116,6 +117,7 @@ function _exec(x, token::Symbol=:pass; options...)
 
     x = get(options, :eval, false) ? :($(esc(:eval))($x)) : x
     x = get(options, :expr, false) ? :(expr($x)) : x
+    x = get(options, :unwrap, false) ? :(unwrap($x)) : x
     x = get(options, :resolve, false) ? _resolve_wrap(x) : _unresolve_wrap(x)
     return x
 end

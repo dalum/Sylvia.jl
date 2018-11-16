@@ -9,9 +9,10 @@ makedocs(
     modules = [Sylvia],
     pages = [
         "Home" => "index.md"
-        "Basics" => "basics.md"
+        # "Basics" => "basics.md"
         "Symbols" => "symbols.md"
         "Expressions" => "expressions.md"
+        "Contexts" => "contexts.md"
     ]
 )
 

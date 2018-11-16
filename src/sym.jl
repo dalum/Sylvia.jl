@@ -64,8 +64,12 @@ symignore(::LineNumberNode) = true
 # Convenience methods
 ##################################################
 
-macro S_str(str::String)
-    return esc_sym(Meta.parse(str))
+macro S_str(str::String, suffix::String = "")
+    ex = esc_sym(Meta.parse(str))
+    if suffix == "u"
+        return :(unwrap($ex))
+    end
+    return ex
 end
 
 sym(xs...) = Tuple(sym(x) for x in xs)
