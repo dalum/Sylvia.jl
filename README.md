@@ -3,6 +3,8 @@
 [![Build Status](https://travis-ci.org/dalum/Sylvia.jl.svg?branch=master)](https://travis-ci.org/dalum/Sylvia.jl)
 [![codecov](https://codecov.io/gh/dalum/Sylvia.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/dalum/Sylvia.jl)
 
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://dalum.github.io/Sylvia.jl/dev)
+
 A simple symbolic library with a pretty name.
 
 ## Usage
