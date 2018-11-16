@@ -66,7 +66,12 @@ julia&gt; h1(1, 2, 3)
 h2 (generic function with 1 method)
 
 julia&gt; h2(1, 2, 3)
-7</code></pre><h2><a class="nav-anchor" id="Rules-1" href="#Rules-1">Rules</a></h2><p>Another use of the <code>@!</code> macro is for defining rules.  Rules in Sylvia are a set of patterns that transform expressions eagerly.  For instance, we could add a rule that transforms expressions of the type <code>a + a</code> to <code>2a</code>.  The keyword <code>set</code> is used to add a new rule:</p><pre><code class="language-julia">julia&gt; a + a
+7</code></pre><p>Because the <code>@! ...::T</code> pattern is used to declare/convert the tag of <code>Sym</code>s, writing <code>::</code> inside an expression using the <code>@!</code> macro or <code>S&quot;...&quot;</code> string macro cannot be used for type assertions.  To overcome this, Sylvia allows writing for colons, <code>::::</code>, to represent <code>::</code> in normal Julia code:</p><pre><code class="language-julia">julia&gt; @! function :f(a, b)::::Number
+           a + b
+       end
+@! function f(a, b)::Number
+    a + b
+end</code></pre><h2><a class="nav-anchor" id="Rules-1" href="#Rules-1">Rules</a></h2><p>Another use of the <code>@!</code> macro is for defining rules.  Rules in Sylvia are a set of patterns that transform expressions eagerly.  For instance, we could add a rule that transforms expressions of the type <code>a + a</code> to <code>2a</code>.  The keyword <code>set</code> is used to add a new rule:</p><pre><code class="language-julia">julia&gt; a + a
 @! a + a
 
 julia&gt; @! set a + a = 2a
