@@ -7,7 +7,7 @@ import LinearAlgebra
 import MacroTools: striplines, unblock
 
 export @S_str, @λ, @scope, @!, @sym,
-    Wild,
+    Sym, Wild,
     gather, substitute, tagof
 
 ##################################################

@@ -122,7 +122,7 @@ end
 
 function unblock_interpolate(::Val{head}, x::Expr; kwargs...) where {head}
     @assert x.head === head
-    return striplines(unblock(Expr(head, map(arg -> unblock_interpolate(arg; kwargs...), x.args)...)))
+    return unblock(Expr(head, map(arg -> unblock_interpolate(arg; kwargs...), x.args)...))
 end
 
 function unblock_interpolate(::Val{:quote}, x::Expr; interpolate=true, kwargs...)

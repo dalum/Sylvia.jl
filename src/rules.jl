@@ -1,4 +1,4 @@
-let
+@scope GLOBAL_CONTEXT let
     @sym [Wild{Any}] x
 
     @! set x == x = true
@@ -6,7 +6,7 @@ let
     @! set one(one(x)) = one(x)
 end
 
-let
+@scope GLOBAL_CONTEXT let
     @sym [Wild{Number}] x y [Wild{AbstractMatrix}] X Y
 
     @! set (+)(x) = x
@@ -22,7 +22,7 @@ let
     @! set commuteswith(*, x, Y) = true
 end
 
-let
+@scope GLOBAL_CONTEXT let
     @sym [Wild{Bool}] x y
 
     @! set (|)(x) = x
@@ -31,7 +31,3 @@ let
     @! set commuteswith(&, x, y) = true
     @! set commuteswith(|, x, y) = true
 end
-
-# Create a new context for user rules
-const USER_CONTEXT = Context(GLOBAL_CONTEXT)
-ACTIVE_CONTEXT[] = USER_CONTEXT
