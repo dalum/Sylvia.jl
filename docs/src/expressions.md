@@ -145,6 +145,20 @@ julia> h2(1, 2, 3)
 7
 ```
 
+Because the `@! ...::T` pattern is used to declare/convert the tag of
+`Sym`s, writing `::` inside an expression using the `@!` macro or
+`S"..."` string macro cannot be used for type assertions.  To overcome
+this, Sylvia allows writing for colons, `::::`, to represent `::` in
+normal Julia code:
+```julia
+julia> @! function :f(a, b)::::Number
+           a + b
+       end
+@! function f(a, b)::Number
+    a + b
+end
+```
+
 ## Rules
 
 Another use of the `@!` macro is for defining rules.  Rules in Sylvia
