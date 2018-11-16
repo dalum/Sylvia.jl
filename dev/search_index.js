@@ -13,23 +13,15 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Sylvia",
     "category": "section",
-    "text": "Welcome to the documentation for Sylvia.jl!This document is intended to help you get started with using the package."
+    "text": "Welcome to the documentation for Sylvia.jl!This document is intended to help you get started with using the package.  If you have any suggestions, please open an issue or pull request on https://github.com/dalum/Sylvia.jl."
 },
 
 {
-    "location": "basics/#",
-    "page": "Basics",
-    "title": "Basics",
-    "category": "page",
-    "text": ""
-},
-
-{
-    "location": "basics/#Basics-1",
-    "page": "Basics",
-    "title": "Basics",
+    "location": "#Introduction-1",
+    "page": "Home",
+    "title": "Introduction",
     "category": "section",
-    "text": "Sylvia is a library for working with symbolic expressions.  These expressions are stored inside mutable objects of the type Sym.  The structure of the Sym type is very similar to the Expr type found in base Julia, and consists of two fields, a head and args.  The head field describes which kind of expression object we are dealing with, and the args is a vector of objects describing the contents of the expression."
+    "text": "Sylvia is a library for working with symbolic expressions in Julia. \"Symbolic\" here means that the symbols and computations inside the expression do not necessarily have a known value.  Instead, symbols are representations of a large variety of possible values.  When writing a simple expression such as a + b, the values a and b do not yet have a value.  However, if a and b are both numbers, we know based on the properties of the operator + that a + b is also a number.  This information is useful both as optimization and comprehension tools, i. e., for generating fast code and for understanding the properties of an expression.The standard way of working with expressions in Julia is using macros. The expression objects available to a macro, however, is generated at parse time which means that they do not know which function + corresponds to, nor what types a and b has.The goal of Sylvia is to provide a toolbox for working with expressions that contain information beyond what is known at parse time.  That is, the expression a + b in Sylvia knows that + is the + operator from the Base module, and a, b have known types, in Sylvia referred to as their tags."
 },
 
 {
@@ -109,7 +101,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Expressions",
     "title": "Rules",
     "category": "section",
-    "text": "Another use of the @! macro is for defining rules.  Rules in Sylvia are a set of patterns that transform expressions eagerly.  For instance, we could add a rule that transforms expressions of the type a + a to 2a.  The keyword set is used to add a new rule:julia> a + a\n@! a + a\n\njulia> @! set a + a = 2a\nOrderedCollections.OrderedDict{Sylvia.Sym,Sylvia.Sym} with 1 entry:\n  a + a => 2a\n\njulia> a + a\n@! 2a\n\njulia> b + b\n@! b + bNote that the rule we created only applies to symbols that are called a and whose tag is a subtype of the tag for which the rule was created.  To allow overriding rules, expressions inside the @! macro will not be resolved, unless the keyword resolve is given:julia> @! set a + a = 2.01a\n\njulia> @! a + a\n@! a + a\n\njulia> @! resolve a + a\n@! 2.01aUsing the resolve keyword and unbound symbols, we see that the rule only apply to symbols called a, if they have tag that is a subtype of Number:julia> @! resolve :a + :a\n@! a + a\n\njulia> @! resolve :a::Float64 + :a::Float64\n@! 2.01aTo remove a rule, we use the keyword unset:julia> @! unset a + a\nSylvia.Context with 0 entries\n\njulia> a + a\n@! a + aFor inline usage, the @! resolve ... pattern can be a bit verbose. For this reason, the S\"...\" pattern is often more convenient.  The string macro pattern also obeys the resolving context in which it occurs, making it more flexible in some cases:julia> @! set a + a = 2.01a;\n\njulia> S\":a::Float64 + :a::Float64\"\n@! 2.01a\n\njulia> @! S\":a::Float64 + :a::Float64\"\n@! a + a"
+    "text": "Another use of the @! macro is for defining rules.  Rules in Sylvia are a set of patterns that transform expressions eagerly.  For instance, we could add a rule that transforms expressions of the type a + a to 2a.  The keyword set is used to add a new rule:julia> a + a\n@! a + a\n\njulia> @! set a + a = 2a\nSylvia.Context with 1 entry:\n  a + a => 2a\n\njulia> a + a\n@! 2aTo allow overriding rules, expressions inside the @! macro will not be resolved, unless the keyword resolve is given:julia> @! a + a\n@! a + a\n\njulia> @! resolve a + a\n@! 2aUsing the resolve keyword and unbound symbols, we see that the rule only apply to symbols called a, if they have tag that is a subtype of Number:julia> @! resolve :a + :a\n@! a + a\n\njulia> @! resolve :b::Float64 + :b::Float64\n@! b + b\n\njulia> @! resolve :a::Float64 + :a::Float64\n@! 2aTo remove a rule, we use the keyword unset:julia> @! unset a + a\nSylvia.Context with 0 entries\n\njulia> a + a\n@! a + aFor inline usage, the @! resolve ... pattern can be a bit verbose. For this reason, the S\"...\" pattern is often more convenient.  The string macro pattern also obeys the resolving context in which it occurs, making it more flexible in some cases:julia> @! set a + a = 2.01a;\n\njulia> S\":a::Float64 + :a::Float64\"\n@! 2.01a\n\njulia> @! S\":a::Float64 + :a::Float64\"\n@! a + a"
 },
 
 {
@@ -118,6 +110,38 @@ var documenterSearchIndex = {"docs": [
     "title": "Interpolation",
     "category": "section",
     "text": "In some sense, Syms can be said to follow an opposite interpolation scheme when compared to Expr objects in Julia.  This is best illustrated by an example:julia> x = a + b\n@! a + b\n\njulia> @! function :f(a, b)\n           return x\n       end\n@! function f(a::Number, b::Number)\n    return a + b\nend\n\njulia> @! function :f(a, b)\n           return :x\n       end\n@! function f(a::Number, b::Number)\n    return x\nendIn the first line above, we bind the Julia variable x to the Sym representing the addition of a and b.  In the second, we create a Sym representing a function definition using the arguments a and b.  The function body returns x, but is eagerly transformed into a + b, since that is what x has been bound to.  In the third line, the function definition is repeated, but this time using an unbound symbol x.  This prevents interpolation of x.  Compare this with the equivalent Julia expressions, which uses $ for interpolation:julia> :(function f(a, b)\n           return x\n       end)\n:(function f(a, b)\n      return x\n  end)\n\njulia> :(function f(a, b)\n           return $x\n       end)\n:(function f(a, b)\n      return (@! a + b)\n  end)"
+},
+
+{
+    "location": "contexts/#",
+    "page": "Contexts",
+    "title": "Contexts",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "contexts/#Contexts-1",
+    "page": "Contexts",
+    "title": "Contexts",
+    "category": "section",
+    "text": "Rules in Sylvia are stored in objects of the type Sylvia.Context. When Sylvia resolves expressions, it uses a global reference, Sylvia.__ACTIVE_CONTEXT__, which points to the current active context.  Contexts are stored in a tree–structure, with each context pointing to a single parent.  This allows contexts to inherit and override rules from its parent contexts, without copying or modifying them."
+},
+
+{
+    "location": "contexts/#User-contexts-1",
+    "page": "Contexts",
+    "title": "User contexts",
+    "category": "section",
+    "text": "The default context pointed to by Sylvia.__ACTIVE_CONTEXT__ is the default user context.  This context has a parent, Sylvia.GLOBAL_CONTEXT, which itself has no parent.  To see the rules for the current context, @! context can be used:julia> @! context\nSylvia.Context with 0 entriesTo see the rules of the parent scope, we can access the parent field of the active context:julia> (@! context).parent\nSylvia.Context with 16 entries:\n  x == x         => true\n  zero(zero(x))  => zero(x)\n  one(one(x))    => one(x)\n  +x             => x\n  ...\n  x | y == y | x => trueThese rules can be a bit opaque without type information.  Using Sylvia.set_annotations(true), we can turn on explicit annotations when printing, to see when the rules are applied.  You should see something like this:julia> Sylvia.set_annotations(true);\n\njulia> (@! context).parent\nSylvia.Context with 16 entries:\n  (x::Wild{Any} == x::Wild{Any})::Any                   => true\n  zero(zero(x::Wild{Any})::Any)::Any                    => zero(x::Wild{Any})::Any\n  one(one(x::Wild{Any})::Any)::Any                      => one(x::Wild{Any})::Any\n  (+(x::Wild{Number}))::Number                          => x::Wild{Number}\n  ...\n  ((x::Wild{Bool} | y::Wild{Bool})::Bool == (y::Wild{B… => trueLet us look at the first entry above.  It says that x == x is true for objects of type Sym{Wild{Any}}.  The Wild{T} type is a special type in Sylvia, which is used in matching (the Sylvia.match function).  Matching is used when applying rules, and matching a Sym{<:T} against a Sym{Wild{T}} returns a match, independent of what the contents of the Syms are.  Because it is true for all types, T, that, T<:Any the Sym{Wild{Any}} rule applies to all objects, and thus this rule ensures the identity x == x for all Syms.The second rule, zero(zero(x)) = zero(x), similarly claims that for any Sym, x, zero(zero(x)) should be transformed into zero(x). This rule ensures the identity, iszero(zero(x)), for all x, since iszero(x) = x == zero(x).  To see this, note that iszero(zero(x)) is transformed into zero(x) == zero(zero(x)), which is then transformed into the expression zero(x) == zero(x).  The first rule above is then applied to return true.  This is best illustrated by example:julia> Sylvia.set_annotations(false)\nfalse\n\njulia> @! iszero(zero(:a))\n@! zero(a) == zero(zero(a))\n\njulia> iszero(zero(a))\ntrueRules like these are crucial for making Syms usable in generic code."
+},
+
+{
+    "location": "contexts/#Scoping-1",
+    "page": "Contexts",
+    "title": "Scoping",
+    "category": "section",
+    "text": "Because the default user context is global, it is often best practice to create local contexts for local rules.  This is done using the macro @scope:julia> @! clear!\nSylvia.Context with 0 entries\n\njulia> @! set a + a = 2a\nSylvia.Context with 1 entry:\n  a + a => 2a\n\njulia> @scope let\n           println(a + a)\n           @! set a + a = 0\n           println(a + a)\n       end\n@! 2a\n0\n\njulia> a + a\n@! 2aThe @scope macro creates an anonymous context and makes it active with the previous active context as its parent.  Thus, as seen in the last line above, the local rules inside the @scope macro do not affect the context outside the scope.  The @scope macro also accepts a context as its first argument, which allows executing inside that scope.  We can use this to enter the parent scope of the active context:julia> @scope @!(context).parent let\n           @! context\n       end\nSylvia.Context with 16 entries:\n  x == x         => true\n  zero(zero(x))  => zero(x)\n  ...\n  x | y == y | x => true\n\njulia> @! context\nSylvia.Context with 1 entry:\n  a + a => 2aAn alternative use is to create a new parentless context, which contain no rules at all:julia> @scope Sylvia.Context() let\n           a == a\n       end\n@! a == aThe @scope macro is generally paired with let or other blocks in Julia that introduce scopes for Julia variables.  However, @scope accepts any type of expression head.  This can be useful for creating extra rules that are valid in a given context during the creation of a new variable, or for applying rules inside a function body that is already scoped.  This latter case is due to the fact that @scope f(x) = x^2 will apply a new scope during the creation of the function f, rather than during each call, which should be written: f(x) = @scope x^2.  Doing this in the wrong order can lead to undesired side–effects.  Consider the following example, which returns 0 if the result of x^2 matches :a^2:julia> @! clear!\nSylvia.Context with 0 entries\n\njulia> @scope @eval f(x) = begin\n           @! set :a^2 = 0\n           return x^2\n       end\nf (generic function with 1 method)\n\njulia> @! context\nSylvia.Context with 0 entries\n\njulia> f(a)\n0\n\njulia> f(2)\n4\n\njulia> @! context\nSylvia.Context with 1 entry:\n  a ^ 2 => 0Here, the function creates the rule in the calling context, rather than the context in which it was created.  This function should have been written in the opposite order, which also doesn\'t require the use of @eval:julia> f(x) = @scope begin\n           @! set :a^2 = 0\n           return x^2\n       end\nf (generic function with 1 method)\n\njulia> f(a)\n0\n\njulia> @! context\nSylvia.Context with 0 entries"
 },
 
 ]}

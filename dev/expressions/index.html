@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Expressions · Sylvia</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><h1>Sylvia</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../">Home</a></li><li><a class="toctext" href="../basics/">Basics</a></li><li><a class="toctext" href="../symbols/">Symbols</a></li><li class="current"><a class="toctext" href>Expressions</a><ul class="internal"><li><a class="toctext" href="#Functions-1">Functions</a></li><li><a class="toctext" href="#Calling-symbols-1">Calling symbols</a></li><li><a class="toctext" href="#Rules-1">Rules</a></li><li><a class="toctext" href="#Interpolation-1">Interpolation</a></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li><a href>Expressions</a></li></ul><a class="edit-page" href="https://github.com/dalum/Sylvia.jl/blob/master/docs/src/expressions.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Expressions</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Expressions-1" href="#Expressions-1">Expressions</a></h1><p>Sylvia provides methods for a variety of functions in base Julia, which allows expressions to be constructed by simply applying functions to symbols:</p><pre><code class="language-julia">julia&gt; @sym [Number] a b
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Expressions · Sylvia</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><h1>Sylvia</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../">Home</a></li><li><a class="toctext" href="../symbols/">Symbols</a></li><li class="current"><a class="toctext" href>Expressions</a><ul class="internal"><li><a class="toctext" href="#Functions-1">Functions</a></li><li><a class="toctext" href="#Calling-symbols-1">Calling symbols</a></li><li><a class="toctext" href="#Rules-1">Rules</a></li><li><a class="toctext" href="#Interpolation-1">Interpolation</a></li></ul></li><li><a class="toctext" href="../contexts/">Contexts</a></li></ul></nav><article id="docs"><header><nav><ul><li><a href>Expressions</a></li></ul><a class="edit-page" href="https://github.com/dalum/Sylvia.jl/blob/master/docs/src/expressions.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Expressions</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Expressions-1" href="#Expressions-1">Expressions</a></h1><p>Sylvia provides methods for a variety of functions in base Julia, which allows expressions to be constructed by simply applying functions to symbols:</p><pre><code class="language-julia">julia&gt; @sym [Number] a b
 (@! a, @! b)
 
 julia&gt; a + b
@@ -70,24 +70,22 @@ julia&gt; h2(1, 2, 3)
 @! a + a
 
 julia&gt; @! set a + a = 2a
-OrderedCollections.OrderedDict{Sylvia.Sym,Sylvia.Sym} with 1 entry:
+Sylvia.Context with 1 entry:
   a + a =&gt; 2a
 
 julia&gt; a + a
-@! 2a
-
-julia&gt; b + b
-@! b + b</code></pre><p>Note that the rule we created <em>only</em> applies to symbols that are called <code>a</code> and whose tag is a subtype of the tag for which the rule was created.  To allow overriding rules, expressions inside the <code>@!</code> macro will not be resolved, unless the keyword <code>resolve</code> is given:</p><pre><code class="language-julia">julia&gt; @! set a + a = 2.01a
-
-julia&gt; @! a + a
+@! 2a</code></pre><p>To allow overriding rules, expressions inside the <code>@!</code> macro will not be resolved, unless the keyword <code>resolve</code> is given:</p><pre><code class="language-julia">julia&gt; @! a + a
 @! a + a
 
 julia&gt; @! resolve a + a
-@! 2.01a</code></pre><p>Using the resolve keyword and unbound symbols, we see that the rule only apply to symbols called <code>a</code>, if they have tag that is a subtype of <code>Number</code>:</p><pre><code class="language-julia">julia&gt; @! resolve :a + :a
+@! 2a</code></pre><p>Using the resolve keyword and unbound symbols, we see that the rule only apply to symbols called <code>a</code>, if they have tag that is a subtype of <code>Number</code>:</p><pre><code class="language-julia">julia&gt; @! resolve :a + :a
 @! a + a
 
+julia&gt; @! resolve :b::Float64 + :b::Float64
+@! b + b
+
 julia&gt; @! resolve :a::Float64 + :a::Float64
-@! 2.01a</code></pre><p>To remove a rule, we use the keyword <code>unset</code>:</p><pre><code class="language-julia">julia&gt; @! unset a + a
+@! 2a</code></pre><p>To remove a rule, we use the keyword <code>unset</code>:</p><pre><code class="language-julia">julia&gt; @! unset a + a
 Sylvia.Context with 0 entries
 
 julia&gt; a + a
@@ -124,4 +122,4 @@ julia&gt; :(function f(a, b)
        end)
 :(function f(a, b)
       return (@! a + b)
-  end)</code></pre><footer><hr/><a class="previous" href="../symbols/"><span class="direction">Previous</span><span class="title">Symbols</span></a></footer></article></body></html>
+  end)</code></pre><footer><hr/><a class="previous" href="../symbols/"><span class="direction">Previous</span><span class="title">Symbols</span></a><a class="next" href="../contexts/"><span class="direction">Next</span><span class="title">Contexts</span></a></footer></article></body></html>

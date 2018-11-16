@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Contexts · Sylvia</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><h1>Sylvia</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../">Home</a></li><li><a class="toctext" href="../symbols/">Symbols</a></li><li><a class="toctext" href="../expressions/">Expressions</a></li><li class="current"><a class="toctext" href>Contexts</a><ul class="internal"><li><a class="toctext" href="#User-contexts-1">User contexts</a></li><li><a class="toctext" href="#Scoping-1">Scoping</a></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li><a href>Contexts</a></li></ul><a class="edit-page" href="https://github.com/dalum/Sylvia.jl/blob/master/docs/src/contexts.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Contexts</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Contexts-1" href="#Contexts-1">Contexts</a></h1><p>Rules in Sylvia are stored in objects of the type <code>Sylvia.Context</code>. When Sylvia resolves expressions, it uses a global reference, <code>Sylvia.__ACTIVE_CONTEXT__</code>, which points to the current active context.  Contexts are stored in a tree–structure, with each context pointing to a single parent.  This allows contexts to inherit and override rules from its parent contexts, without copying or modifying them.</p><h2><a class="nav-anchor" id="User-contexts-1" href="#User-contexts-1">User contexts</a></h2><p>The default context pointed to by <code>Sylvia.__ACTIVE_CONTEXT__</code> is the default user context.  This context has a parent, <code>Sylvia.GLOBAL_CONTEXT</code>, which itself has no parent.  To see the rules for the current context, <code>@! context</code> can be used:</p><pre><code class="language-julia">julia&gt; @! context
+Sylvia.Context with 0 entries</code></pre><p>To see the rules of the parent scope, we can access the <code>parent</code> field of the active context:</p><pre><code class="language-julia">julia&gt; (@! context).parent
+Sylvia.Context with 16 entries:
+  x == x         =&gt; true
+  zero(zero(x))  =&gt; zero(x)
+  one(one(x))    =&gt; one(x)
+  +x             =&gt; x
+  ...
+  x | y == y | x =&gt; true</code></pre><p>These rules can be a bit opaque without type information.  Using <code>Sylvia.set_annotations(true)</code>, we can turn on explicit annotations when printing, to see when the rules are applied.  You should see something like this:</p><pre><code class="language-julia">julia&gt; Sylvia.set_annotations(true);
+
+julia&gt; (@! context).parent
+Sylvia.Context with 16 entries:
+  (x::Wild{Any} == x::Wild{Any})::Any                   =&gt; true
+  zero(zero(x::Wild{Any})::Any)::Any                    =&gt; zero(x::Wild{Any})::Any
+  one(one(x::Wild{Any})::Any)::Any                      =&gt; one(x::Wild{Any})::Any
+  (+(x::Wild{Number}))::Number                          =&gt; x::Wild{Number}
+  ...
+  ((x::Wild{Bool} | y::Wild{Bool})::Bool == (y::Wild{B… =&gt; true</code></pre><p>Let us look at the first entry above.  It says that <code>x == x</code> is <code>true</code> for objects of type <code>Sym{Wild{Any}}</code>.  The <code>Wild{T}</code> type is a special type in Sylvia, which is used in matching (the <code>Sylvia.match</code> function).  Matching is used when applying rules, and matching a <code>Sym{&lt;:T}</code> against a <code>Sym{Wild{T}}</code> returns a match, independent of what the contents of the <code>Sym</code>s are.  Because it is true for all types, <code>T</code>, that, <code>T&lt;:Any</code> the <code>Sym{Wild{Any}}</code> rule applies to all objects, and thus this rule ensures the identity <code>x == x</code> for all <code>Sym</code>s.</p><p>The second rule, <code>zero(zero(x)) = zero(x)</code>, similarly claims that for any <code>Sym</code>, <code>x</code>, <code>zero(zero(x))</code> should be transformed into <code>zero(x)</code>. This rule ensures the identity, <code>iszero(zero(x))</code>, for all <code>x</code>, since <code>iszero(x) = x == zero(x)</code>.  To see this, note that <code>iszero(zero(x))</code> is transformed into <code>zero(x) == zero(zero(x))</code>, which is then transformed into the expression <code>zero(x) == zero(x)</code>.  The first rule above is then applied to return <code>true</code>.  This is best illustrated by example:</p><pre><code class="language-julia">julia&gt; Sylvia.set_annotations(false)
+false
+
+julia&gt; @! iszero(zero(:a))
+@! zero(a) == zero(zero(a))
+
+julia&gt; iszero(zero(a))
+true</code></pre><p>Rules like these are crucial for making <code>Sym</code>s usable in generic code.</p><h2><a class="nav-anchor" id="Scoping-1" href="#Scoping-1">Scoping</a></h2><p>Because the default user context is global, it is often best practice to create local contexts for local rules.  This is done using the macro <code>@scope</code>:</p><pre><code class="language-julia">julia&gt; @! clear!
+Sylvia.Context with 0 entries
+
+julia&gt; @! set a + a = 2a
+Sylvia.Context with 1 entry:
+  a + a =&gt; 2a
+
+julia&gt; @scope let
+           println(a + a)
+           @! set a + a = 0
+           println(a + a)
+       end
+@! 2a
+0
+
+julia&gt; a + a
+@! 2a</code></pre><p>The <code>@scope</code> macro creates an anonymous context and makes it active with the previous active context as its parent.  Thus, as seen in the last line above, the local rules inside the <code>@scope</code> macro do not affect the context outside the scope.  The <code>@scope</code> macro also accepts a context as its first argument, which allows executing inside that scope.  We can use this to enter the parent scope of the active context:</p><pre><code class="language-julia">julia&gt; @scope @!(context).parent let
+           @! context
+       end
+Sylvia.Context with 16 entries:
+  x == x         =&gt; true
+  zero(zero(x))  =&gt; zero(x)
+  ...
+  x | y == y | x =&gt; true
+
+julia&gt; @! context
+Sylvia.Context with 1 entry:
+  a + a =&gt; 2a</code></pre><p>An alternative use is to create a new parentless context, which contain no rules at all:</p><pre><code class="language-julia">julia&gt; @scope Sylvia.Context() let
+           a == a
+       end
+@! a == a</code></pre><p>The <code>@scope</code> macro is generally paired with <code>let</code> or other blocks in Julia that introduce scopes for Julia variables.  However, <code>@scope</code> accepts any type of expression head.  This can be useful for creating extra rules that are valid in a given context during the creation of a new variable, or for applying rules inside a function body that is already scoped.  This latter case is due to the fact that <code>@scope f(x) = x^2</code> will apply a new scope during the <em>creation</em> of the function <code>f</code>, rather than during each call, which should be written: <code>f(x) = @scope x^2</code>.  Doing this in the wrong order can lead to undesired side–effects.  Consider the following example, which returns <code>0</code> if the result of <code>x^2</code> matches <code>:a^2</code>:</p><pre><code class="language-julia">julia&gt; @! clear!
+Sylvia.Context with 0 entries
+
+julia&gt; @scope @eval f(x) = begin
+           @! set :a^2 = 0
+           return x^2
+       end
+f (generic function with 1 method)
+
+julia&gt; @! context
+Sylvia.Context with 0 entries
+
+julia&gt; f(a)
+0
+
+julia&gt; f(2)
+4
+
+julia&gt; @! context
+Sylvia.Context with 1 entry:
+  a ^ 2 =&gt; 0</code></pre><p>Here, the function creates the rule in the <em>calling</em> context, rather than the context in which it was created.  This function should have been written in the opposite order, which also doesn&#39;t require the use of <code>@eval</code>:</p><pre><code class="language-julia">julia&gt; f(x) = @scope begin
+           @! set :a^2 = 0
+           return x^2
+       end
+f (generic function with 1 method)
+
+julia&gt; f(a)
+0
+
+julia&gt; @! context
+Sylvia.Context with 0 entries</code></pre><footer><hr/><a class="previous" href="../expressions/"><span class="direction">Previous</span><span class="title">Expressions</span></a></footer></article></body></html>
