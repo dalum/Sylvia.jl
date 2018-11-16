@@ -4,7 +4,7 @@ Welcome to the documentation for Sylvia.jl!
 
 This document is intended to help you get started with using the
 package.  If you have any suggestions, please open an issue or pull
-request on [https://github.com/dalum/Sylvia.jl](GitHub).
+request on [GitHub](https://github.com/dalum/Sylvia.jl).
 
 ## Introduction
 
