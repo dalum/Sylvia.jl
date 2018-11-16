@@ -1,4 +1,12 @@
 macro register(name, N::Integer)
+    return register(name, name, N)
+end
+
+macro register(name, alias, N::Integer)
+    return register(name, alias, N)
+end
+
+function register(name, alias, N::Integer)
     name = esc(name)
     symbols = Any[gensym("symvar") for _ in 1:N]
     ret = register_promote(name, symbols)
@@ -6,7 +14,7 @@ macro register(name, N::Integer)
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
     e = quote
         function $name($(arglist...))
-            apply($name, $(symbols...))
+            apply($alias, $(symbols...))
         end
     end
     push!(ret.args, e)

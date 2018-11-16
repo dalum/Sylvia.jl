@@ -26,8 +26,6 @@ end
 
 resolving(ctx::Context) = ctx.resolve_stack[end]
 
-
-
 const GLOBAL_CONTEXT = Context()
 # Create a new context for user rules
 const __ACTIVE_CONTEXT__ = Ref(Context(GLOBAL_CONTEXT))
@@ -86,6 +84,8 @@ function _exec_dispatch(args...)
 end
 
 function _exec(x, token::Symbol=:pass; options...)
+    raw = get(options, :raw, false)
+
     x = if token === :clear!
         if x === nothing
             :(empty!(@__context__))
@@ -100,6 +100,7 @@ function _exec(x, token::Symbol=:pass; options...)
         end
     elseif token === :set
         if Meta.isexpr(x, :(=))
+            raw = true
             key, val = x.args
             :(set!(
                 @__context__,
@@ -110,6 +111,7 @@ function _exec(x, token::Symbol=:pass; options...)
             error("malformed `set` expression: missing `=`: $x")
         end
     elseif token === :unset
+        raw = true
         :(unset!(@__context__, $(esc_sym(x))))
     else
         esc_sym(x)
@@ -118,7 +120,7 @@ function _exec(x, token::Symbol=:pass; options...)
     x = get(options, :eval, false) ? :($(esc(:eval))($x)) : x
     x = get(options, :expr, false) ? :(expr($x)) : x
     x = get(options, :unwrap, false) ? :(unwrap($x)) : x
-    x = get(options, :resolve, false) ? _resolve_wrap(x) : _unresolve_wrap(x)
+    x = raw ? _unresolve_wrap(x) : _resolve_wrap(x)
     return x
 end
 

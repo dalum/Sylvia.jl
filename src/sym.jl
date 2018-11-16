@@ -129,21 +129,6 @@ function unblock_interpolate(::Val{head}, x::Expr; kwargs...) where {head}
     return unblock(Expr(head, map(arg -> unblock_interpolate(arg; kwargs...), x.args)...))
 end
 
-function unblock_interpolate(::Val{:quote}, x::Expr; interpolate=true, kwargs...)
-    @assert x.head === :quote
-    return interpolate ? Expr(:$, x) : x
-end
-
-function unblock_interpolate(::Val{:(=)}, x::Expr; kwargs...)
-    @assert x.head === :(=)
-    return Expr(:(=), map(arg -> unblock_interpolate(arg; kwargs...), x.args)...)
-end
-
-function unblock_interpolate(::Val{:ref}, x::Expr; kwargs...)
-    @assert x.head === :ref
-    return Expr(:ref, map(arg -> unblock_interpolate(arg; kwargs...), x.args)...)
-end
-
 function unblock_interpolate(::Val{:call}, x::Expr; interpolate=true, kwargs...)
     @assert x.head === :call
     x.args = map(arg -> unblock_interpolate(arg; interpolate=false, kwargs...), x.args)
@@ -155,8 +140,13 @@ function unblock_interpolate(::Val{:call}, x::Expr; interpolate=true, kwargs...)
     end
 end
 
-function unblock_interpolate(::Val{:curly}, x::Expr; interpolate=true, kwargs...)
-    @assert x.head === :curly
+function unblock_interpolate(::Val{:(.)}, x::Expr; kwargs...)
+    @assert x.head === :(.)
+    return unblock(Expr(:(.), unblock_interpolate(x.args[1]; kwargs...), x.args[2:end]...))
+end
+
+function unblock_interpolate(::Val{:quote}, x::Expr; interpolate=true, kwargs...)
+    @assert x.head === :quote
     return interpolate ? Expr(:$, x) : x
 end
 
@@ -165,26 +155,17 @@ function unblock_interpolate(::Val{:macrocall}, x::Expr; interpolate=true, kwarg
     return interpolate ? Expr(:$, x) : x
 end
 
-function unblock_interpolate(::Val{:(::)}, x::Expr; interpolate=true, type_assert=false, kwargs...)
+function unblock_interpolate(::Val{:(::)}, x::Expr; interpolate=true, kwargs...)
     @assert x.head === :(::)
-    if !type_assert
-        x = unblock_interpolate(
-            Expr(:call, sym, x.args[2], x.args[1]);
-            interpolate=interpolate,
-            type_assert=type_assert,
-            kwargs...
-        )
-        return x
+    if length(x.args) >= 2
+        if Meta.isexpr(x.args[2], :(::)) && length(x.args[2].args) == 1
+            return Expr(:(::), unblock_interpolate(x.args[1]; interpolate=interpolate, kwargs...), x.args[2].args[1])
+        else
+            return unblock_interpolate(Expr(:call, sym, x.args[2], x.args[1]); interpolate=interpolate, kwargs...)
+        end
+    else
+        return unblock(Expr(:(::), map(arg -> unblock_interpolate(arg; interpolate=interpolate, kwargs...), x.args)...))
     end
-    x.args = map(
-        arg -> unblock_interpolate(
-            arg;
-            interpolate=interpolate,
-            type_assert=type_assert,
-            kwargs...),
-        x.args
-    )
-    return interpolate ? Expr(:$, x) : x
 end
 
 ##################################################

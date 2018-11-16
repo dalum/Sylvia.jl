@@ -38,6 +38,15 @@ function expr(::Val{:function}, x::Sym; kwargs...)
     return Expr(:function, expr(fn, type_annotate=true; kwargs...), expr(body; kwargs...))
 end
 
+function expr(::Val{:struct}, x::Sym; kwargs...)
+    @assert gethead(x) === :struct
+    return Expr(
+        :struct,
+        map(arg -> expr(arg; kwargs...), getargs(x)[1:2])...,
+        map(arg -> expr(arg, type_annotate=true; kwargs...), getargs(x)[3:end])...
+    )
+end
+
 function expr(::Val{:(=)}, x::Sym; kwargs...)
     @assert gethead(x) === :(=)
     lhs, rhs = getargs(x)
@@ -65,6 +74,8 @@ end
 expr(t::Tuple; kwargs...) = Expr(:tuple, map(arg -> expr(arg; kwargs...), t)...)
 expr(v::AbstractVector; kwargs...) = Expr(:vect, map(arg -> expr(arg; kwargs...), v)...)
 expr(A::AbstractMatrix; kwargs...) = Expr(:vcat, mapslices(x -> Expr(:row, map(arg -> expr(arg; kwargs...), x)...), A, dims=2)...)
+
+block(xs...) = Expr(:block, xs...)
 
 getsymbols(x) = map(firstarg, getsyms(x))
 
