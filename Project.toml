@@ -1,7 +1,7 @@
 name = "Sylvia"
 uuid = "bfa11788-d035-11e8-2cb4-831bebeb7e29"
 authors = ["Sakse Dalum <dalum@users.noreply.github.com>"]
-version = "0.1.0"
+version = "0.3.0-dev"
 
 [deps]
 AbstractInstances = "dcb815ea-eafe-11e8-3455-c1d24ef5b462"
