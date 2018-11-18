@@ -25,7 +25,8 @@ end
 
 function expr(::Val{:type}, x::Sym; kwargs...)
     @assert gethead(x) === :type
-    return expr(firstarg(x); kwargs...)
+    T = expr(firstarg(x); kwargs...)
+    return foldl((a, b) -> Expr(:., a, QuoteNode(b)), map(Symbol, split(repr(T), ".")))
 end
 
 function expr(::Val{:fn}, x::Sym; qualified_names=false, kwargs...)

@@ -54,6 +54,14 @@ end
 
 @testset "wild" begin
     @sym [Wild] wild_default [Wild{Number}] wild_number [Wild{Float64}] wild_float
+    @test tagof(wild_default) == Sylvia.DEFAULT_TAG
+    @test tagof(wild_number) == Number
+    @test tagof(wild_float) == Float64
+    @test !iswild(a)
+    @test @! unwrap iswild(a::Wild{Number})
+    @test iswild(wild_default)
+    @test iswild(wild_number)
+    @test iswild(wild_float)
     @test Sylvia.ismatch(Sylvia.match(a, wild_number))
     @test Sylvia.ismatch(Sylvia.match(wild_float, wild_default))
     @test !Sylvia.ismatch(Sylvia.match(wild_default, wild_float))
@@ -198,7 +206,7 @@ function h end
 @testset "function generation" begin
     X = randn(2, 2)
     x = a + b + c
-    @! eval :f(a, b, c) = x
+    f = @! eval (a, b, c) -> x
     @! eval :g(A) = A^2
     @! eval function h(a, b, c)
         x
@@ -207,4 +215,18 @@ function h end
     @test f(1, 2, 3) == 6
     @test h(1, 2, 3) == 6
     @test g(X) ≈ X^2
+end
+
+@testset "type generation" begin
+    @! eval struct :MyType <: :Number
+        a
+        b
+    end
+    instance = MyType(1, 2)
+
+    @test MyType <: Number
+    @test fieldnames(MyType) == (:a, :b)
+    @test fieldtype(MyType, :a) == Number
+    @test fieldtype(MyType, :b) == Number
+    @test instance.a == 1 && instance.b == 2
 end
