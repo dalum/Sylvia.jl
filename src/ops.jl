@@ -32,8 +32,8 @@ Base.getproperty(x::Sym, val::Sym{Symbol}) = combine(:(.), x, val)
 
 Base.in(x::Sym, y::Sym) = apply(in, x, y)
 
-@register Base.:(:) Sym(:(:)) 2
-@register Base.:(:) Sym(:(:)) 3
+@register Base.:(:) --> Sym(:(:)) 2
+@register Base.:(:) --> Sym(:(:)) 3
 
 # Multi-arg operators
 for op in (:+, :*)

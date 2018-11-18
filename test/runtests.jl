@@ -105,14 +105,14 @@ end
 
 @testset "dynamic rules" begin
     @scope begin
-        @! set iszero(a) = true
-        @! set a in b = true
+        @! set iszero(a) --> true
+        @! set a in b --> true
         @scope begin
-            @! set a in b = false
+            @! set a in b --> false
             @test iszero(a)
             @test !(a in b)
             @! unset a in b
-            @! set iszero(a) = false
+            @! set iszero(a) --> false
             @test a in b
             @test !iszero(a)
             @! clear!
@@ -148,14 +148,14 @@ end
 @testset "simplification" begin
     @test gather(a + b + c + d + a + b + c + d) == 2a + 2b + 2c + 2d
     @scope begin
-        @! set iszero(a) = true
-        @! set isone(b) = true
+        @! set iszero(a) --> true
+        @! set isone(b) --> true
         @test gather(a + b*c + c) == 2c
     end
 
     @scope begin
-        @! set istrue(x) = true
-        @! set isfalse(y) = true
+        @! set istrue(x) --> true
+        @! set isfalse(y) --> true
 
         @test gather(x & y) == y
         @test gather(x | y) == x
@@ -167,6 +167,7 @@ end
 @testset "substitution" begin
     @test substitute(a + b, a => b) == b + b
     @test substitute(a + b, a => A) == A + b
+    @test substitute(a + b, a => b, b => a) == b + a
     @test substitute(a + b, a => b, strict=true) == b + b
     @test substitute(a + b, a => x, strict=true) == x + b
     @test_throws ErrorException substitute(a + b, a => A, strict=true)
@@ -176,7 +177,7 @@ end
     @test all(Vector(A, 2) .== [A[1], A[2]])
     @test all(Matrix(A, 2, 2) .== [A[1,1] A[1,2]; A[2,1] A[2,2]])
 
-    @! set length(v) = 4
+    @! set length(v) --> 4
 
     @test collect(v) == Vector(v, 4)
     for (i, vi) in enumerate(v)
@@ -187,7 +188,7 @@ end
 @testset "@!" begin
     function g end
     @test @!(g(a)) == S"g(a)"
-    @! set g(a) = a + 1
+    @! set g(a) --> a + 1
     @test a + 1 == @! resolve g(a)
 end
 

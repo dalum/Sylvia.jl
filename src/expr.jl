@@ -2,6 +2,12 @@ Core.eval(m::Module, x::Sym) = Core.eval(m, expr(x))
 
 @inline expr(x::Sym; kwargs...) = expr(Val(gethead(x)), x; kwargs...)
 
+function expr(::Val{:protected}, x::Sym; kwargs...)
+    @assert gethead(x) === :protected
+    ex = expr(firstarg(x); kwargs...)
+    return :(protect($ex))
+end
+
 function expr(::Val{:object}, x::Sym; kwargs...)
     @assert gethead(x) === :object
     return expr(firstarg(x); kwargs...)

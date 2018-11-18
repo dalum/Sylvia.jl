@@ -12,16 +12,21 @@ ismocking(x::Sym{<:Mock}) = true
 
 function Cassette.execute(ctx::CassetteCtx, f, args...)
     if Cassette.canoverdub(ctx, f, args...)
-        return apply(f, (get(ctx.metadata, arg, arg) for arg in args)...)
+        context, dict = ctx.metadata
+        return apply(f, (get(dict, arg, arg) for arg in args)...; context=context)
     else
         return f(args...)
     end
 end
 
-function mock(f, xs::Sym{<:Mock}...)
+function mock(f, xs::Sym{<:Mock}...; context::Context = @__context__)
     tags = map(tagof, xs)
     ps = map(AbstractInstances.oftype, tags)
-    ctx = CassetteCtx(metadata = IdDict{Any,Sym}(key => val for (key, val) in zip(ps, xs)))
+    metadata = (
+        context = context,
+        dict = IdDict{Any,Sym}(key => val for (key, val) in zip(ps, xs))
+    )
+    ctx = CassetteCtx(metadata = metadata)
     result = Cassette.overdub(ctx, invoke, f, Tuple{tags...}, ps...)
-    return get(ctx.metadata, result, result)
+    return get(ctx.metadata.dict, result, result)
 end

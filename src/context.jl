@@ -34,17 +34,21 @@ macro __context__()
     return :(__ACTIVE_CONTEXT__[])
 end
 
-function query!(x::Sym, ctx::Context = __ACTIVE_CONTEXT__[])
-    resolving(ctx) || return x
+function query!(x::Sym; context::Context = @__context__())
+    resolving(context) || return x
 
-    for (key, val) in Iterators.reverse(ctx)
+    for (key, val) in Iterators.reverse(context)
         m = match(x, key)
         if ismatch(m)
-            substitute!(x, val, filter(y -> !(y isa Bool), m)...)
+            # io = IOContext(stdout, :compact => true)
+            # @info "applying rule: $(sprint(show, key, context=io)) --> $(sprint(show, val, context=io))"
+            # @info "in: $(sprint(show, x, context=io))"
+            substitute!(x, val, filter(y -> !(y isa Bool), m)...; context=context)
+            # @info "out: $(sprint(show, x, context=io))"
         end
     end
 
-    ctx.parent === nothing || query!(x, ctx.parent)
+    context.parent === nothing || query!(x, context=context.parent)
 
     return x
 end
@@ -99,7 +103,7 @@ function _exec(x, token::Symbol=:pass; options...)
             error("expression following `context`: $x is not `nothing`")
         end
     elseif token === :set
-        if Meta.isexpr(x, :(=))
+        if Meta.isexpr(x, :(-->))
             raw = true
             key, val = x.args
             :(set!(
@@ -108,7 +112,7 @@ function _exec(x, token::Symbol=:pass; options...)
                 $(esc_sym(val)))
               )
         else
-            error("malformed `set` expression: missing `=`: $x")
+            error("malformed `set` expression: missing `-->`: $x")
         end
     elseif token === :unset
         raw = true
@@ -156,6 +160,10 @@ end
 # @scope
 ##################################################
 
+function setcontext!(ctx::Context)
+    return @__context__() = ctx
+end
+
 macro scope(ex)
     return scope(nothing, ex)
 end
@@ -168,20 +176,23 @@ function scope(name, x)
     __return__ = gensym("return")
     if name !== nothing
         prev = gensym("prev")
-        newctx = :(($prev = __ACTIVE_CONTEXT__[]; $(esc(name))))
+        newctx = quote
+            $prev = @__context__
+            $(esc(name))
+        end
         oldctx = prev
     else
         newctx = :(Context(@__context__))
-        oldctx = :(__ACTIVE_CONTEXT__[].parent)
+        oldctx = :(@__context__().parent)
     end
 
     ex = quote
-        __ACTIVE_CONTEXT__[] = $newctx
+        setcontext!($newctx)
         $__return__ = nothing
         try
             $__return__ = $(esc(x))
         finally
-            __ACTIVE_CONTEXT__[] = $oldctx
+            setcontext!($oldctx)
             $__return__
         end
     end

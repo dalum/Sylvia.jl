@@ -27,6 +27,7 @@ Base.promote_op(f, a::Type{Sym{T}}, b::Type{Sym{S}}) where {T,S} = Sym{promote_t
 ##################################################
 
 promote_tag(head::Symbol, args...) = promote_tag(Val(head), args...)
+promote_tag(::Val{:protected}, argtag) = argtag
 promote_tag(::Val{:fn}, argtag) = argtag
 promote_tag(::Val{:call}, op::Sym, argtags::Type...) = promote_tag(Val(:call), firstarg(op), argtags...)
 promote_tag(::Val{:call}, op, argtags::Type...) = Base.promote_op(op, argtags...)

@@ -3,7 +3,7 @@
 ##################################################
 
 unwrap(x) = x
-function unwrap(x::Sym{TAG}) where {TAG}
+function unwrap(x::Sym{TAG}; context::Context = @__context__) where {TAG}
     hashead(x, :object) && return firstarg(x)
     if hashead(x, :call)
         op = firstarg(x)
@@ -15,7 +15,7 @@ function unwrap(x::Sym{TAG}) where {TAG}
                 if all(hashead(:object), xs) && all(x -> firstarg(x) isa tagof(x), xs)
                     return invoke(f, Tuple{tags...}, map(firstarg, xs)...)
                 elseif all(ismocking, xs) && all(isabstracttype, tags)
-                    return mock(f, xs...)
+                    return mock(f, xs...; context = context)
                 end
             end
         end
@@ -40,5 +40,10 @@ end
 # Querying apply/combine
 ##################################################
 
-apply(op, xs...) = unwrap(query!(_apply(op, xs...)))
-combine(head::Symbol, xs...) = unwrap(query!(_combine(head, xs...)))
+function apply(op, xs...; context::Context = @__context__)
+    return unwrap(query!(_apply(op, xs...), context = context), context = context)
+end
+
+function combine(head::Symbol, xs...; context::Context = @__context__)
+    unwrap(query!(_combine(head, xs...), context = context), context = context)
+end

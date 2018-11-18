@@ -134,12 +134,8 @@ end
 function unblock_interpolate(::Val{:call}, x::Expr; interpolate=true, kwargs...)
     @assert x.head === :call
     x.args = map(arg -> unblock_interpolate(arg; interpolate=false, kwargs...), x.args)
-    if interpolate
-        ex = :(applicable($(x.args...)) ? $x : Core._expr(:call, $(x.args...)))
-        return Expr(:$, ex)
-    else
-        return x
-    end
+    ex = :(applicable($(x.args...)) ? $x : Core._expr(:call, $(x.args...)))
+    return interpolate ? Expr(:$, ex) : ex
 end
 
 function unblock_interpolate(::Val{:(.)}, x::Expr; kwargs...)

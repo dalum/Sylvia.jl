@@ -1,25 +1,25 @@
-"""
-    cse
+# """
+#     cse
 
-Common subexpression elimination.
+# Common subexpression elimination.
 
-"""
-function cse(x::Sym, subxs = Dict{Sym,Sym}())
-    if hashead(x, :call)
-        args = tailargs(x)
-    else
-        args = getargs(x)
-    end
+# """
+# function cse(x::Sym, subxs = Dict{Sym,Sym}())
+#     if hashead(x, :call)
+#         args = tailargs(x)
+#     else
+#         args = getargs(x)
+#     end
 
-    for i in eachindex(args)
-        if args[i] in keys(subxs)
-            args[i] = subxs[args[i]]
-        else
-            args[i] = subxs[args[i]] = Sym{tagof(args[i])}(gensym())
-        end
-    end
-    return args, subxs
-end
+#     for i in eachindex(args)
+#         if args[i] in keys(subxs)
+#             args[i] = subxs[args[i]]
+#         else
+#             args[i] = subxs[args[i]] = Sym{tagof(args[i])}(gensym())
+#         end
+#     end
+#     return args, subxs
+# end
 
 """
     normalorder
@@ -27,18 +27,23 @@ end
 Sort by commuting adjacent elements.
 
 """
-normalorder(x::Sym, op::Sym) = normalorder!(deepcopy(x), op)
+normalorder(x::Sym, op::Sym; kwargs...) = normalorder!(deepcopy(x), op; kwargs...)
 
-normalorder!(x, op) = x
-function normalorder!(x::Sym, op::Sym)
+normalorder!(x, op; kwargs...) = x
+function normalorder!(x::Sym, op::Sym; context::Context = @__context__(), kwargs...)
     isatomic(x) && return x
-    map(a -> normalorder!(a, op), getargs(x))
+    map(a -> normalorder!(a, op; context=context), getargs(x))
     (hashead(x, :call) && (firstarg(x) == op) === true) || return x
-    sort!(getargs(x), alg=InsertionSort, lt=(a, b) -> _commute_lt(op, a, b))
-    return x
+    sort!(getargs(x), alg=InsertionSort, lt=(a, b) -> _commute_lt(op, a, b; context=context))
+    return query!(x, context=context)
 end
-function _commute_lt(op, a, b)
-    return (commuteswith(op, a, b) === true || commuteswith(op, b, a) === true) && isless(string(a), string(b))
+
+function _commute_lt(op, a, b; context::Context)
+    return @scope context begin
+        (commuteswith(op, a, b) === true ||
+         commuteswith(op, b, a) === true) &&
+         isless(string(a), string(b))
+    end
 end
 
 """
@@ -47,12 +52,12 @@ end
 Run length encode.
 
 """
-rle(x::Sym, op::Sym, enc_op::Sym) = rle!(deepcopy(x), op, enc_op)
+rle(x::Sym, op::Sym, enc_op::Sym; kwargs...) = rle!(deepcopy(x), op, enc_op; kwargs...)
 
-rle!(x, op, enc_op) = x
-function rle!(x::Sym, op::Sym, enc_op::Sym)
+rle!(x, op, enc_op; kwargs...) = x
+function rle!(x::Sym, op::Sym, enc_op::Sym; context::Context = @__context__(), kwargs...)
     isatomic(x) && return x
-    map(a -> rle!(a, op, enc_op), getargs(x))
+    map(a -> rle!(a, op, enc_op, context=context), getargs(x))
     (hashead(x, :call) && (firstarg(x) == op) === true) || return x
 
     N = length(getargs(x))
@@ -63,14 +68,14 @@ function rle!(x::Sym, op::Sym, enc_op::Sym)
             n += 1
         else
             if n > 1
-                push!(args, firstarg(enc_op)(getargs(x, i), n))
+                push!(args, @scope context firstarg(enc_op)(getargs(x, i), n))
             else
                 push!(args, getargs(x, i))
             end
             n = 1
         end
     end
-    return setargs!(x, args)
+    return query!(setargs!(x, args), context=context)
 end
 
 """
@@ -80,22 +85,22 @@ Remove identities of the operator `op`.  `isidentity` is a function that
 returns true, if the element is an identity element of `op`.
 
 """
-remove_identities(x::Sym, op::Sym, isidentity::Sym) = remove_identities!(deepcopy(x), op, isidentity)
+remove_identities(x::Sym, op::Sym, isidentity::Sym; kwargs...) = remove_identities!(deepcopy(x), op, isidentity; kwargs...)
 
-remove_identities!(x, op, isidentity) = x
-function remove_identities!(x::Sym, op::Sym, isidentity::Sym)
+remove_identities!(x, op, isidentity; kwargs...) = x
+function remove_identities!(x::Sym, op::Sym, isidentity::Sym; context::Context = @__context__)
     isatomic(x) && return x
-    map(a -> remove_identities!(a, op, isidentity), getargs(x))
+    map(a -> remove_identities!(a, op, isidentity, context=context), getargs(x))
     (hashead(x, :call) && (firstarg(x) == op) === true) || return x
     args = getargs(x)
     deleteat!(
         args,
         findall(
-            arg -> firstarg(isidentity)(arg) === true,
+            arg -> @scope(context, firstarg(isidentity)(arg)) === true,
             args
         )
     )
-    return query!(x)
+    return query!(x, context=context)
 end
 
 """
@@ -106,26 +111,26 @@ function that returns true, if the element is an absorbing element of
 `op`
 
 """
-resolve_absorbing(x::Sym, op::Sym, isabsorbing::Sym) = resolve_absorbing!(deepcopy(x), op, isabsorbing)
+resolve_absorbing(x::Sym, op::Sym, isabsorbing::Sym; kwargs...) = resolve_absorbing!(deepcopy(x), op, isabsorbing; kwargs...)
 
-resolve_absorbing!(x, op, isabsorbing) = x
-function resolve_absorbing!(x::Sym, op::Sym, isabsorbing::Sym)
+resolve_absorbing!(x, op, isabsorbing; kwargs...) = x
+function resolve_absorbing!(x::Sym, op::Sym, isabsorbing::Sym; context::Context = @__context__)
     isatomic(x) && return x
-    map(a -> resolve_absorbing!(a, op, isabsorbing), getargs(x))
+    map(a -> resolve_absorbing!(a, op, isabsorbing, context=context), getargs(x))
     (hashead(x, :call) && (firstarg(x) == op) === true) || return x
     args = getargs(x)
-    absorber_index = findfirst(arg -> firstarg(isabsorbing)(arg) === true, args)
+    absorber_index = findfirst(arg -> @scope(context, firstarg(isabsorbing)(arg)) === true, args)
     absorber_index === nothing && return x
     setargs!(x, Any[firstarg(x), getargs(x, absorber_index)])
-    return query!(x)
+    return query!(x, context=context)
 end
 
-split_reapply(x::Sym, op::Sym) = split_reapply!(deepcopy(x), op)
+split_reapply(x::Sym, op::Sym; kwargs...) = split_reapply!(deepcopy(x), op; kwargs...)
 
-split_reapply!(x, op) = x
-function split_reapply!(x::Sym{TAG}, op::Sym) where TAG
+split_reapply!(x, op; kwargs...) = x
+function split_reapply!(x::Sym{TAG}, op::Sym; context::Context = @__context__) where TAG
     isatomic(x) && return x
-    map(a -> split_reapply!(a, op), getargs(x))
+    map(a -> split_reapply!(a, op, context=context), getargs(x))
     (hashead(x, :call) && (firstarg(x) == op) === true) || return x
     args = []
     for arg in getargs(x)
@@ -144,38 +149,38 @@ end
 
 const MAX_GATHER_ITERATIONS = 10
 
-gather(x) = gather!(deepcopy(x))
-function gather!(x)
+gather(x; kwargs...) = gather!(deepcopy(x); kwargs...)
+function gather!(x; context::Context = @__context__)
     x_ = deepcopy(x)
     for _ in 1:MAX_GATHER_ITERATIONS
-        _gather_one_iteration!(x_)
+        _gather_one_iteration!(x_; context=context)
         if (x == x_) === true
             break
         else
             x, x_ = x_, deepcopy(x_)
         end
     end
-    return x_
+    return query!(x_, context=context)
 end
 
-_gather_one_iteration!(x) = x
-function _gather_one_iteration!(x::Sym)
-    remove_identities!(x, Sym(+), Sym(iszero))
-    remove_identities!(x, Sym(*), Sym(isone))
-    resolve_absorbing!(x, Sym(*), Sym(iszero))
-    split_reapply!(x, Sym(+))
-    split_reapply!(x, Sym(*))
-    normalorder!(x, Sym(+))
-    normalorder!(x, Sym(*))
-    rle!(x, Sym(+), Sym(*))
-    rle!(x, Sym(*), Sym(^))
+_gather_one_iteration!(x; kwargs...) = x
+function _gather_one_iteration!(x::Sym; context::Context = @__context__)
+    remove_identities!(x, Sym(+), Sym(iszero), context=context)
+    remove_identities!(x, Sym(*), Sym(isone), context=context)
+    resolve_absorbing!(x, Sym(*), Sym(iszero), context=context)
+    split_reapply!(x, Sym(+), context=context)
+    split_reapply!(x, Sym(*), context=context)
+    normalorder!(x, Sym(+), context=context)
+    normalorder!(x, Sym(*), context=context)
+    rle!(x, Sym(+), Sym(*), context=context)
+    rle!(x, Sym(*), Sym(^), context=context)
 
-    remove_identities!(x, Sym(|), Sym(isfalse))
-    remove_identities!(x, Sym(&), Sym(istrue))
-    resolve_absorbing!(x, Sym(|), Sym(istrue))
-    resolve_absorbing!(x, Sym(&), Sym(isfalse))
-    normalorder!(x, Sym(&))
-    normalorder!(x, Sym(|))
+    remove_identities!(x, Sym(|), Sym(isfalse), context=context)
+    remove_identities!(x, Sym(&), Sym(istrue), context=context)
+    resolve_absorbing!(x, Sym(|), Sym(istrue), context=context)
+    resolve_absorbing!(x, Sym(&), Sym(isfalse), context=context)
+    normalorder!(x, Sym(&), context=context)
+    normalorder!(x, Sym(|), context=context)
 
     return x
 end

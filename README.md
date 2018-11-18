@@ -18,15 +18,15 @@ julia> @sym [Number] a b c d
 julia> a + b*c + c |> gather
 @! a + b * c + c
 
-julia> @! set iszero(a) = true; # a == zero(a)
+julia> @! set iszero(a) --> true; # a == zero(a)
 
-julia> @! set isone(b) = true; # b == one(b)
+julia> @! set isone(b) --> true; # b == one(b)
 
 julia> a + b*c + c |> gather
 @! 2c
 
-julia> substitute(a + b + c, a => b, b => c) |> gather
-@! 3c
+julia> substitute(a + b + c, a => b, b => c, c => a)
+@! c + a + b
 
 julia> using LinearAlgebra
 
@@ -55,9 +55,6 @@ f (generic function with 1 method)
 julia> methods(f)
 # 1 method for generic function "f":
 [1] f(c::Number, d::Number) in Main
-
-julia> Sylvia.diveinto(f, c, d) # `c` and `d` are not of type `Number`
-@! (0 + (c' * c + (c * d)' * (c * d))) + (d' * d + (c + d ^ 2)' * (c + d ^ 2))
 
 julia> using BenchmarkTools
 

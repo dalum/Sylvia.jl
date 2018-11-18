@@ -1,39 +1,34 @@
 macro register(name, N::Integer)
-    return register(name, name, N)
+    return register(nothing, _parse_name(name)..., N)
 end
 
-macro register(name, alias, N::Integer)
-    return register(name, alias, N)
+macro register(ctx::Symbol, name, N::Integer)
+    return register(ctx, _parse_name(name)..., N)
 end
 
-function register(name, alias, N::Integer)
+_parse_name(name) = Meta.isexpr(name, :(-->)) ? name.args : (name, name)
+
+function register(ctx::Union{Symbol,Nothing}, name, alias, N::Integer)
     name = esc(name)
     alias = esc(alias)
     symbols = Any[gensym("symvar") for _ in 1:N]
     ret = register_promote(name, symbols)
 
     arglist = [Expr(:(::), s, :Sym) for s in symbols]
-    e = quote
-        function $name($(arglist...))
-            apply($alias, $(symbols...))
+    e = if ctx === nothing
+        quote
+            function $name($(arglist...))
+                apply($alias, $(symbols...))
+            end
+        end
+    else
+        quote
+            function $name($(arglist...))
+                apply($alias, $(symbols...); context=$(esc(ctx)))
+            end
         end
     end
-    push!(ret.args, e)
 
-    return ret
-end
-
-macro register_diveinto(name, N::Integer)
-    name = esc(name)
-    symbols = Any[gensym("symvar") for _ in 1:N]
-    ret = register_promote(name, symbols)
-
-    arglist = [Expr(:(::), s, :Sym) for s in symbols]
-    e = quote
-        function $name($(arglist...))
-            diveinto($name, $(symbols...))
-        end
-    end
     push!(ret.args, e)
 
     return ret
