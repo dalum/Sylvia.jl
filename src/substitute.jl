@@ -4,7 +4,7 @@
 Like `substitute(x, pairs...)` but overwrites `dest`.
 
 """
-function substitute!(dest::Sym, x::Sym, pairs::Pair{<:Sym,<:Sym}...; strict=false)
+function substitute!(dest::Sym, x::Sym, pairs::Pair...; strict=false)
     y = substitute(x, pairs...; strict=strict)
     sethead!(dest, gethead(y))
     setargs!(dest, getargs(y))

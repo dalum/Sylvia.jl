@@ -1,5 +1,6 @@
 module Sylvia
 
+import AbstractInstances
 import Cassette
 import Combinatorics: permutations
 import DataStructures: OrderedDict
@@ -7,7 +8,7 @@ import LinearAlgebra
 import MacroTools: striplines, unblock
 
 export @S_str, @λ, @scope, @!, @sym,
-    Sym, Wild,
+    Mock, Sym, Wild,
     gather, substitute, tagof
 
 ##################################################
@@ -22,10 +23,12 @@ export @S_str, @λ, @scope, @!, @sym,
 # Includes
 ##################################################
 
+include("cassettectx.jl")
+
 include("sym.jl")
 include("wild.jl")
+include("mock.jl")
 include("match.jl")
-include("protoinstance.jl")
 include("promotion.jl")
 include("expr.jl")
 include("show.jl")

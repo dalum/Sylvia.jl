@@ -52,20 +52,40 @@ end
     end
 end
 
-@testset "protoinstances" begin
-    @test Sylvia.oftype(Number) isa Sylvia.ProtoNumber
-    @test Sylvia.oftype(Wild{Number}) isa Sylvia.ProtoNumber
-end
-
 @testset "wild" begin
-    wild_default = Sylvia.wild(:w)
-    wild_float = Sylvia.wild(Float64, :w)
-    wild_a = Sylvia.wild(a)
+    @sym [Wild] wild_default [Wild{Number}] wild_number [Wild{Float64}] wild_float
+    @test Sylvia.ismatch(Sylvia.match(a, wild_number))
     @test Sylvia.ismatch(Sylvia.match(wild_float, wild_default))
     @test !Sylvia.ismatch(Sylvia.match(wild_default, wild_float))
-    @test Sylvia.ismatch(Sylvia.match(wild_a, wild_default))
+    @test Sylvia.ismatch(Sylvia.match(wild_number, wild_default))
     @test Sylvia.ismatch(Sylvia.match(@!(a::Float64), wild_float))
     @test !Sylvia.ismatch(Sylvia.match(a, wild_float))
+end
+
+@testset "mock" begin
+    @sym [Mock] mock_default [Mock{Real}] mock_real [Mock{Float64}] mock_float
+    function f(x::Number)
+        y = x + 1
+        return 2y
+    end
+    g(x::Number) = x
+
+    @test_throws MethodError f(mock_default)
+    @test_throws MethodError f(mock_real)
+    @test_throws MethodError f(mock_float)
+    @test_throws MethodError g(mock_default)
+    @test_throws MethodError g(mock_real)
+    @test_throws MethodError g(mock_float)
+
+    Sylvia.@register f 1
+    Sylvia.@register g 1
+
+    @test f(mock_default) == Sylvia._apply(f, mock_default)
+    @test f(mock_real) == 2(mock_real + 1)
+    @test f(mock_float) == Sylvia._apply(f, mock_float)
+    @test g(mock_default) == Sylvia._apply(g, mock_default)
+    @test g(mock_real) == mock_real
+    @test g(mock_float) == Sylvia._apply(g, mock_float)
 end
 
 @testset "default rules" begin
@@ -111,16 +131,6 @@ end
     @test Sylvia.getsymbols((a, b, c, d)) == [:a, :b, :c, :d]
     @test Sylvia.getsymbols([a, b, c, d]) == [:a, :b, :c, :d]
     @test Sylvia.getops((a + b, b * c, sin(d))) == [+, *, sin]
-end
-
-@testset "function diving" begin
-    function f(x::Number)
-        y = x + 1
-        return 2y
-    end
-    @test_throws MethodError f(a)
-    Sylvia.@register_diveinto f 1
-    @test f(a) == 2(a + 1)
 end
 
 @testset "combine" begin

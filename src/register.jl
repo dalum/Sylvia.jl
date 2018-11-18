@@ -8,6 +8,7 @@ end
 
 function register(name, alias, N::Integer)
     name = esc(name)
+    alias = esc(alias)
     symbols = Any[gensym("symvar") for _ in 1:N]
     ret = register_promote(name, symbols)
 

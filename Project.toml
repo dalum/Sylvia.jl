@@ -4,6 +4,7 @@ authors = ["Sakse Dalum <dalum@users.noreply.github.com>"]
 version = "0.1.0"
 
 [deps]
+AbstractInstances = "dcb815ea-eafe-11e8-3455-c1d24ef5b462"
 Cassette = "7057c7e9-c182-5462-911a-8362d720325c"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"

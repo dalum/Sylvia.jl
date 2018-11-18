@@ -1,26 +1,4 @@
 ##################################################
-# Function diving
-##################################################
-
-Cassette.@context CassetteCtx
-
-function Cassette.execute(ctx::CassetteCtx, f, args...)
-    if Cassette.canoverdub(ctx, f, args...)
-        newargs = (get(ctx.metadata, arg, arg) for arg in args)
-        return f(newargs...)
-    else
-        return Cassette.fallback(ctx, f, args...)
-    end
-end
-
-function diveinto(op, xs::Sym...)
-    tags = map(tagof, xs)
-    ps = map(oftype, tags)
-    ctx = CassetteCtx(metadata = IdDict{Any,Sym}(key => val for (key, val) in zip(ps, xs)))
-    return Cassette.overdub(ctx, invoke, op, Tuple{tags...}, ps...)
-end
-
-##################################################
 # Raw apply/combine
 ##################################################
 
@@ -29,12 +7,16 @@ function unwrap(x::Sym{TAG}) where {TAG}
     hashead(x, :object) && return firstarg(x)
     if hashead(x, :call)
         op = firstarg(x)
-        xs = getargs(x)[2:end]
-        if hashead(op, :fn) && all(hashead(:object), xs)
+        if hashead(op, :fn)
+            xs = tailargs(x)
             f = firstarg(op)
-            objs = map(firstarg, xs)
-            if applicable(f, objs...)
-                return firstarg(op)(objs...)
+            tags = map(tagof, xs)
+            if hasmethod(f, Tuple{tags...})
+                if all(hashead(:object), xs) && all(x -> firstarg(x) isa tagof(x), xs)
+                    return invoke(f, Tuple{tags...}, map(firstarg, xs)...)
+                elseif all(ismocking, xs) && all(isabstracttype, tags)
+                    return mock(f, xs...)
+                end
             end
         end
     end

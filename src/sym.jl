@@ -1,6 +1,8 @@
+abstract type AbstractSym{TAG} end
+
 const DEFAULT_TAG = Any
 
-mutable struct Sym{TAG}
+mutable struct Sym{TAG} <: AbstractSym{TAG}
     head::Symbol
     args::Vector{Any}
 

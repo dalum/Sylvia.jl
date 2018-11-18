@@ -1,6 +1,6 @@
 Core.eval(m::Module, x::Sym) = Core.eval(m, expr(x))
 
-expr(x::Sym; kwargs...) = expr(Val(gethead(x)), x; kwargs...)
+@inline expr(x::Sym; kwargs...) = expr(Val(gethead(x)), x; kwargs...)
 
 function expr(::Val{:object}, x::Sym; kwargs...)
     @assert gethead(x) === :object
@@ -25,11 +25,7 @@ end
 function expr(::Val{:fn}, x::Sym; qualified_names=false, kwargs...)
     @assert gethead(x) === :fn
     fn = expr(firstarg(x); kwargs...)
-    if qualified_names
-        return Expr(:., parentmodule(fn), QuoteNode(nameof(fn)))
-    else
-        return nameof(fn)
-    end
+    return foldl((a, b) -> Expr(:., a, QuoteNode(b)), map(Symbol, split(repr(fn), ".")))
 end
 
 function expr(::Val{:function}, x::Sym; kwargs...)
@@ -69,6 +65,7 @@ function expr(::Val{head}, x::Sym{TAG}; annotate=false, kwargs...) where {TAG,he
     end
 end
 
+@inline expr(a::Nothing; kwargs...) = Symbol(repr(a))
 @inline expr(a; kwargs...) = a # Catch all
 
 expr(t::Tuple; kwargs...) = Expr(:tuple, map(arg -> expr(arg; kwargs...), t)...)

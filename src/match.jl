@@ -1,21 +1,21 @@
-const MatchPairs = Set{Union{Bool,Pair{<:Sym{<:Wild},<:Sym}}}
+const MatchPairs = Set{Union{Bool,Pair}}
 
 # Catch all
 match(x, y) = (x == y) === true ? MatchPairs() : MatchPairs(false)
 match(x::Sym, y) = match(promote(x, y)...)
 match(x, y::Sym) = match(promote(x, y)...)
 
-match(x::Sym{<:TAG}, y::Sym{Wild{TAG}}) where {TAG} = MatchPairs([y => x])
-match(x::Sym{Wild{T}}, y::Sym{Wild{S}}) where {T,S} = MatchPairs(false)
-match(x::Sym{Wild{T}}, y::Sym{Wild{S}}) where {S,T<:S} = MatchPairs([x => y])
+match(x::Sym, y::Sym{<:Wild}) = MatchPairs(tagof(x) <: tagof(y) ? [y => x] : false)
 
-match(x::Sym, y::Sym) = MatchPairs(false)
-function match(x::Sym{<:T}, y::Sym{T}) where T
+function match(x::Sym, y::Sym)
+    tagof(x) <: tagof(y) || return MatchPairs(false)
     gethead(x) === gethead(y) || return MatchPairs(false)
     xargs, yargs = getargs(x), getargs(y)
     length(xargs) == length(yargs) || return MatchPairs(false)
     m = mapreduce(x -> match(x[1], x[2]), union, zip(xargs, yargs))
-    return any(isfalse, m) ? MatchPairs(false) : m
+    any(isfalse, m) && return MatchPairs(false)
+    hashead(x, :symbol) && return MatchPairs([y => x])
+    return m
 end
 
 function ismatch(pairs::MatchPairs)
