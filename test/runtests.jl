@@ -57,11 +57,11 @@ end
     @test tagof(wild_default) == Sylvia.DEFAULT_TAG
     @test tagof(wild_number) == Number
     @test tagof(wild_float) == Float64
-    @test !iswild(a)
-    @test @! unwrap iswild(a::Wild{Number})
-    @test iswild(wild_default)
-    @test iswild(wild_number)
-    @test iswild(wild_float)
+    @test !Sylvia.iswild(a)
+    @test @! unwrap Sylvia.iswild(a::Wild{Number})
+    @test Sylvia.iswild(wild_default)
+    @test Sylvia.iswild(wild_number)
+    @test Sylvia.iswild(wild_float)
     @test Sylvia.ismatch(Sylvia.match(a, wild_number))
     @test Sylvia.ismatch(Sylvia.match(wild_float, wild_default))
     @test !Sylvia.ismatch(Sylvia.match(wild_default, wild_float))
@@ -77,6 +77,8 @@ end
         return 2y
     end
     g(x::Number) = x
+
+    @test Sylvia.ismocking(mock_default) && Sylvia.ismocking(mock_real) && Sylvia.ismocking(mock_float)
 
     @test_throws MethodError f(mock_default)
     @test_throws MethodError f(mock_real)
