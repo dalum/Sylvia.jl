@@ -74,10 +74,8 @@ macro S_str(str::String, suffix::String = "")
     return ex
 end
 
-sym(xs...) = Tuple(sym(x) for x in xs)
 sym(x) = Sym{DEFAULT_TAG}(x)
-sym(::Type{TAG}, xs...) where {TAG} = Tuple(sym(TAG, x) for x in xs)
-sym(::Type{TAG}, x) where {TAG} = Sym{TAG}(x)
+sym(tag, x) = Sym{tag}(x)
 
 macro sym(xs...)
     TAG = DEFAULT_TAG
@@ -157,13 +155,17 @@ function unblock_interpolate(::Val{:(::)}, x::Expr; interpolate=true, kwargs...)
     @assert x.head === :(::)
     if length(x.args) >= 2
         if Meta.isexpr(x.args[2], :(::)) && length(x.args[2].args) == 1
-            return Expr(:(::), unblock_interpolate(x.args[1]; interpolate=interpolate, kwargs...), x.args[2].args[1])
+            x.args[1] = unblock_interpolate(x.args[1]; interpolate=false, kwargs...)
+            x.args[2] = unblock_interpolate(x.args[2].args[1]; interpolate=false, kwargs...)
+            ex = :(Core._expr(:(::), $(x.args...)))
         else
-            return unblock_interpolate(Expr(:call, sym, x.args[2], x.args[1]); interpolate=interpolate, kwargs...)
+            ex = Expr(:call, sym, x.args[2], unblock_interpolate(x.args[1]; interpolate=false, kwargs...))
         end
     else
-        return unblock(Expr(:(::), map(arg -> unblock_interpolate(arg; interpolate=interpolate, kwargs...), x.args)...))
+        x.args = map(arg -> unblock_interpolate(arg; interpolate=false, kwargs...), x.args)
+        ex = :(Core._expr(:(::), $(x.args...)))
     end
+    return interpolate ? Expr(:$, ex) : ex
 end
 
 ##################################################
@@ -190,6 +192,7 @@ Base.iterate(x::Sym, i) = length(x) + 1 === i ? nothing : (x[i], i + 1)
 ##################################################
 
 isatomic(x::Sym) = hashead(x, (:symbol, :fn, :function, :(->), :type, :object))
+isfaithful(x::Sym{TAG}) where {TAG} = TAG isa Type && firstarg(x) isa TAG
 
 @inline _typeof(x::Sym)::Sym{Type} = Sym(typeof)(x)
 
@@ -201,6 +204,14 @@ isatomic(x::Sym) = hashead(x, (:symbol, :fn, :function, :(->), :type, :object))
 @inline tagof(::Val, x::Expr) = DEFAULT_TAG
 @inline tagof(::Val{:function}, x::Expr) = Function
 @inline tagof(::Val{:(->)}, x::Expr) = Function
+
+@inline istypetag(::Sym{TAG}) where {TAG} = TAG isa Type
+@inline issubtag(a, b) = false
+@inline issubtag(::Any, ::Type{Any}) = true
+@inline issubtag(::Type, ::Type{Any}) = true
+@inline issubtag(::Type{Any}, ::Type{Any}) = true
+@inline issubtag(a::Symbol, b::Symbol) = a === b
+@inline issubtag(a::Type, b::Type) = a <: b
 
 @inline gethead(x) = getfield(x, :head)
 @inline sethead!(x, val) = (setfield!(x, :head, val); x)

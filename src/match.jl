@@ -5,10 +5,10 @@ match(x, y) = (x == y) === true ? MatchPairs() : MatchPairs(false)
 match(x::Sym, y) = match(promote(x, y)...)
 match(x, y::Sym) = match(promote(x, y)...)
 
-match(x::Sym, y::Sym{<:Wild}) = MatchPairs(tagof(x) <: tagof(y) ? [y => x] : false)
+match(x::Sym, y::Sym{<:Wild}) = MatchPairs(issubtag(tagof(x), tagof(y)) ? [y => x] : false)
 
 function match(x::Sym, y::Sym)
-    tagof(x) <: tagof(y) || return MatchPairs(false)
+    issubtag(tagof(x), tagof(y)) || return MatchPairs(false)
     gethead(x) === gethead(y) || return MatchPairs(false)
     xargs, yargs = getargs(x), getargs(y)
     length(xargs) == length(yargs) || return MatchPairs(false)

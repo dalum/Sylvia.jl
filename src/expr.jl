@@ -78,6 +78,7 @@ end
 expr(t::Tuple; kwargs...) = Expr(:tuple, map(arg -> expr(arg; kwargs...), t)...)
 expr(v::AbstractVector; kwargs...) = Expr(:vect, map(arg -> expr(arg; kwargs...), v)...)
 expr(A::AbstractMatrix; kwargs...) = Expr(:vcat, mapslices(x -> Expr(:row, map(arg -> expr(arg; kwargs...), x)...), A, dims=2)...)
+expr(x::LinearAlgebra.UniformScaling; kwargs...) = Expr(:call, :*, expr(x.λ; kwargs...), :I)
 
 block(xs...) = Expr(:block, xs...)
 

@@ -29,12 +29,12 @@ Base.promote_op(f, a::Type{Sym{T}}, b::Type{Sym{S}}) where {T,S} = Sym{promote_t
 promote_tag(head::Symbol, args...) = promote_tag(Val(head), args...)
 promote_tag(::Val{:protected}, argtag) = argtag
 promote_tag(::Val{:fn}, argtag) = argtag
-promote_tag(::Val{:call}, op::Sym, argtags::Type...) = promote_tag(Val(:call), firstarg(op), argtags...)
-promote_tag(::Val{:call}, op, argtags::Type...) = Base.promote_op(op, argtags...)
-promote_tag(::Val{:(.)}, x::Type, argtags::Type...) = Base.promote_op(getproperty, x, argtags...)
-promote_tag(::Val{:ref}, x::Type, argtags::Type...) = Base.promote_op(getindex, x, argtags...)
-promote_tag(::Val{:ref}, x::Type{<:Matrix}, argtags::Type...) = eltype(x)
-promote_tag(::Val{Symbol("'")}, argtags::Type...) = Base.promote_op(adjoint, argtags...)
+promote_tag(::Val{:call}, op::Sym, argtags...) = promote_tag(Val(:call), firstarg(op), argtags...)
+promote_tag(::Val{:call}, op, argtags...) = Base.promote_op(op, argtags...)
+promote_tag(::Val{:(.)}, x::Type, argtags...) = Base.promote_op(getproperty, x, argtags...)
+promote_tag(::Val{:ref}, x::Type, argtags...) = Base.promote_op(getindex, x, argtags...)
+promote_tag(::Val{:ref}, x::Type{<:Matrix}, argtags...) = eltype(x)
+promote_tag(::Val{Symbol("'")}, argtags...) = Base.promote_op(adjoint, argtags...)
 
 # Improve stability, assuming all numbers form a ring
 promote_tag(::Val{:call}, ::typeof(Base.:+), argtags::Type{T}...) where {T<:Number} =

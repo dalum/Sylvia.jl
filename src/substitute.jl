@@ -36,7 +36,7 @@ function _substitute(x::Sym, pairs::Pair{<:Sym,<:Sym}...; strict=false, context:
     isprotected(x) && return x
 
     for (pat, sub) in pairs
-        if strict && !(tagof(sub) <: tagof(pat))
+        if strict && !issubtag(tagof(sub), tagof(pat))
             error("strict mode: cannot substitute: $pat => $sub: $(tagof(sub)) is not a subtype of $(tagof(pat))")
         end
 
@@ -48,14 +48,11 @@ function _substitute(x::Sym, pairs::Pair{<:Sym,<:Sym}...; strict=false, context:
     if !isprotected(x) && !isatomic(x)
         args = map(arg -> unprotect(_substitute(arg, pairs...; strict=strict, context=context)), getargs(x))
         if hashead(x, :call)
-            x = query!(_apply(args...), context=context)
+            x = apply(args...; context=context)
         else
-            x = query!(_combine(gethead(x), args...), context=context)
+            x = combine(gethead(x), args...; context=context)
         end
     end
 
     return x
 end
-
-_substitute_one(arg, pair::(Pair{Sym{T},Sym{S}} where {T,S}); kwargs...) = arg
-_substitute_one(arg::Sym, pair::(Pair{Sym{T},Sym{S}} where {T,S}); kwargs...) = _substitute(arg, pair; kwargs...)

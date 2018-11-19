@@ -12,7 +12,6 @@ using Sylvia: commuteswith, isfalse, istrue, sym
 @testset "identities" begin
     @test obj == sym(:obj)
     @test a == sym(Number, :a)
-    @test (a, b) == sym(Number, :a, :b)
     @test a == S"a::Number" == @!(a::Number) == @! :a::Number
     @test a + b == S"(a + b)::Number" == @!((a + b)::Number) == @! :a::Number + :b::Number
     @test S"Float64" == @! Float64
@@ -153,6 +152,13 @@ end
 @testset "tags" begin
     @test Sylvia.tagof(S"1") === Int
     @test Sylvia.tagof(S"1.0") === Float64
+    @test Sylvia.issubtag(Number, Any)
+    @test Sylvia.issubtag(Real, Number)
+    @test Sylvia.issubtag(:a, Any)
+    @test Sylvia.issubtag(1, Any)
+    @test Sylvia.issubtag(:a, :a)
+    @test !Sylvia.issubtag(:a, Number)
+    @test !Sylvia.issubtag(:a, :b)
 end
 
 @testset "simplification" begin
