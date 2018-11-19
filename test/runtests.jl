@@ -189,6 +189,19 @@ end
     @test_throws ErrorException substitute(a + b, a => A, strict=true)
 end
 
+@testset "circular queries" begin
+    @! set :f(:x::Wild) --> :x::Wild
+    @! set :f(:x::Wild + :y::Wild) --> :f(:f(:x::Wild) + :f(:y::Wild))
+    @! set :hop1(:x::Wild) --> :hop2(:x::Wild)
+    @! set :hop2(:x::Wild) --> :hop3(:x::Wild)
+    @! set :hop3(:x::Wild) --> :hop1(:x::Wild)
+
+    @test (@! :f(a + b)) == (@! raw :f(a + b))
+    @test (@! :hop1(a)) == (@! raw :hop1(a))
+    @test (@! :hop2(a)) == (@! raw :hop2(a))
+    @test (@! :hop3(a)) == (@! raw :hop3(a))
+end
+
 @testset "arrays" begin
     @test all(Vector(A, 2) .== [A[1], A[2]])
     @test all(Matrix(A, 2, 2) .== [A[1,1] A[1,2]; A[2,1] A[2,2]])

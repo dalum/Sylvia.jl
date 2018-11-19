@@ -42,6 +42,7 @@ function _substitute(x::Sym, pairs::Pair{<:Sym,<:Sym}...; strict=false, context:
 
         if isequal(x, pat)
             x = protect(sub)
+            continue
         end
     end
 

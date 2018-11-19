@@ -1,10 +1,13 @@
+const io = IOContext(stdout, :compact => true)
+
 mutable struct Context <: AbstractDict{Sym,Sym}
     parent::Union{Context,Nothing}
     data::OrderedDict{Sym,Sym}
     resolve_stack::Vector{Bool}
+    query_stack::Vector{Sym}
 end
-Context() = Context(nothing, OrderedDict{Sym,Sym}(), [true])
-Context(parent::Union{Context,Nothing}, pairs::Pair{<:Sym,<:Sym}...) = Context(parent, OrderedDict(pairs...), [true])
+Context() = Context(nothing, OrderedDict{Sym,Sym}(), [true], Sym[])
+Context(parent::Union{Context,Nothing}, pairs::Pair{<:Sym,<:Sym}...) = Context(parent, OrderedDict(pairs...), [true], Sym[])
 
 Base.length(ctx::Context) = length(ctx.data)
 Base.iterate(ctx::Context) = iterate(ctx.data)
@@ -36,20 +39,28 @@ end
 
 function query!(x::Sym; context::Context = @__context__())
     resolving(context) || return x
-
-    for (key, val) in Iterators.reverse(context)
-        m = match(x, key)
-        if ismatch(m)
-            # io = IOContext(stdout, :compact => true)
-            # @info "applying rule: $(sprint(show, key, context=io)) --> $(sprint(show, val, context=io))"
-            # @info "in: $(sprint(show, x, context=io))"
-            substitute!(x, val, filter(y -> !(y isa Bool), m)...; context=context)
-            # @info "out: $(sprint(show, x, context=io))"
-        end
+    # Detect circular queries
+    if any(isequal(x), context.query_stack)
+        @debug "circular query detected for: $(sprint(show, x, context=io))"
+        return x
     end
 
-    context.parent === nothing || query!(x, context=context.parent)
-
+    push!(context.query_stack, deepcopy(x))
+    @debug "querying: $(sprint(show, x, context=io))"
+    try
+        for (key, val) in Iterators.reverse(context)
+            m = match(x, key)
+            if ismatch(m)
+                @debug "applying rule: $(sprint(show, key, context=io)) --> $(sprint(show, val, context=io))"
+                substitute!(x, val, filter(y -> !(y isa Bool), m)...; context=context)
+                break
+            end
+        end
+        context.parent === nothing || query!(x, context=context.parent)
+    finally
+        pop!(context.query_stack)
+        @debug "result: $(sprint(show, x, context=io))"
+    end
     return x
 end
 
