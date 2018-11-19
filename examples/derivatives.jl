@@ -1,4 +1,4 @@
-module SylviaDiff
+module Derivatives
 
 using Sylvia
 

@@ -97,13 +97,3 @@ getops(::Val, x::Sym) = mapreduce(getops, union, getargs(x))
 getops(::Val{:call}, x::Sym) = union([firstarg(x)], mapreduce(getops, union, tailargs(x)))
 getops(x::Tuple) = mapreduce(getops, union, x)
 getops(x::AbstractArray) = mapreduce(getops, union, x)
-
-macro λ(e, locals...)
-    locals = map(x -> (x.head = :kw; x), locals)
-    return :(lower($(esc(e)), $(map(esc, locals)...)))
-end
-
-# For when `@locals` gets merged into master:
-# macro λ(e)
-#     return :(lower($(esc(e)); Base.@locals()...))
-# end
