@@ -5,7 +5,7 @@ Like `substitute(x, pairs...)` but overwrites `dest` with the result.
 
 """
 function substitute!(dest::Sym, x::Sym, pairs::Pair...; kwargs...)
-    y = substitute(x, pairs...; kwargs...)
+    y = Sym(substitute(x, pairs...; kwargs...))
     sethead!(dest, gethead(y))
     setargs!(dest, getargs(y))
     return dest
@@ -33,27 +33,18 @@ end
 _substitute(x, pairs::(Pair{<:Sym,<:Sym})...; kwargs...) = x
 
 function _substitute(x::Sym, pairs::Pair{<:Sym,<:Sym}...; strict=false, context::Context = @__context__)
-    isprotected(x) && return x
-
     for (pat, sub) in pairs
         if strict && !issubtag(tagof(sub), tagof(pat))
             error("strict mode: cannot substitute: $pat => $sub: $(tagof(sub)) is not a subtype of $(tagof(pat))")
-        end
-
-        if isequal(x, pat)
-            x = protect(sub)
-            continue
+        elseif isequal(x, pat)
+            return sub
         end
     end
-
-    if !isprotected(x) && !isatomic(x)
-        args = map(arg -> unprotect(_substitute(arg, pairs...; strict=strict, context=context)), getargs(x))
-        if hashead(x, :call)
-            x = apply(args...; context=context)
-        else
-            x = combine(gethead(x), args...; context=context)
-        end
+    isatomic(x) && return x
+    args = map(arg -> _substitute(arg, pairs...; strict=strict, context=context), getargs(x))
+    if hashead(x, :call)
+        return apply(args...; context=context)
+    else
+        return combine(gethead(x), args...; context=context)
     end
-
-    return x
 end

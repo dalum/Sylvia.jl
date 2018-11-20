@@ -37,7 +37,7 @@ macro __context__()
     return :(__ACTIVE_CONTEXT__[])
 end
 
-function query!(x::Sym; context::Context = @__context__())
+function query!(x::Sym; context::Context = @__context__(), _ref_context::Context = context)
     resolving(context) || return x
     # Detect circular queries
     if any(isequal(x), context.query_stack)
@@ -52,11 +52,11 @@ function query!(x::Sym; context::Context = @__context__())
             m = match(x, key)
             if ismatch(m)
                 @debug "applying rule: $(sprint(show, key, context=io)) --> $(sprint(show, val, context=io))"
-                substitute!(x, val, filter(y -> !(y isa Bool), m)...; context=context)
+                substitute!(x, val, filter(y -> !(y isa Bool), m)...; context=_ref_context)
                 break
             end
         end
-        context.parent === nothing || query!(x, context=context.parent)
+        context.parent === nothing || query!(x, context=context.parent, _ref_context=_ref_context)
     finally
         pop!(context.query_stack)
         @debug "result: $(sprint(show, x, context=io))"
